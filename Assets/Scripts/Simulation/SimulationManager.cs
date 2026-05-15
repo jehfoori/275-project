@@ -5,6 +5,7 @@ public sealed class SimulationManager : MonoBehaviour
 {
     [SerializeField] private SimulationBounds bounds;
     [SerializeField] private PreyAgent preyPrefab;
+    [SerializeField] private FoodSpawner foodSpawner;
     [SerializeField] private Transform agentParent;
     [SerializeField] private int startingPreyCount = 30;
     [SerializeField] private bool spawnOnStart = true;
@@ -41,7 +42,7 @@ public sealed class SimulationManager : MonoBehaviour
         {
             PreyAgent prey = Instantiate(preyPrefab, bounds.RandomPointInside(), Random.rotation, parent);
             RegisterPrey(prey);
-            prey.Initialize(bounds, this);
+            prey.Initialize(bounds, this, foodSpawner);
         }
     }
 
