@@ -176,6 +176,7 @@ GameObject:
   m_Component:
   - component: {fileID: 482818118}
   - component: {fileID: 482818119}
+  - component: {fileID: 482818120}
   m_Layer: 0
   m_Name: Simulation
   m_TagString: Untagged
@@ -212,9 +213,28 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   bounds: {fileID: 349570774}
   preyPrefab: {fileID: 1804519226607000000, guid: 1e7adf626ae3d47208614e6613b640ea, type: 3}
+  foodSpawner: {fileID: 482818120}
   agentParent: {fileID: 1220309105}
   startingPreyCount: 30
   spawnOnStart: 1
+--- !u!114 &482818120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 482818117}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61dd9f7a51b8457390919fa40f832e60, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bounds: {fileID: 349570774}
+  foodPrefab: {fileID: 8751623118294000000, guid: 474eb6565a40843809017f9ff3e9c0e8, type: 3}
+  foodParent: {fileID: 0}
+  initialFoodCount: 18
+  maxFoodCount: 35
+  spawnInterval: 1.4
 --- !u!1 &1220309104
 GameObject:
   m_ObjectHideFlags: 0

@@ -6,23 +6,35 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float maxAcceleration = 9f;
     [SerializeField] private float perceptionRadius = 5f;
     [SerializeField] private float separationRadius = 1.5f;
-    [SerializeField] private float separationWeight = 2.4f;
+    [SerializeField] private float separationWeight = 3.2f;
     [SerializeField] private float alignmentWeight = 1.1f;
     [SerializeField] private float cohesionWeight = 0.9f;
     [SerializeField] private float wanderStrength = 1.2f;
     [SerializeField] private float wanderTurnRate = 0.8f;
     [SerializeField] private float wanderTargetInterval = 1.5f;
     [SerializeField] private float boundsStrength = 12f;
+    [SerializeField] private float maxEnergy = 100f;
+    [SerializeField] private float energyDrainRate = 2.6f;
+    [SerializeField] private float hungerThreshold = 55f;
+    [SerializeField] private float foodPerceptionRadius = 12f;
+    [SerializeField] private float foodSeekWeight = 12f;
+    [SerializeField] private float eatRadius = 0.6f;
     [SerializeField] private float turnResponsiveness = 10f;
 
     private SimulationBounds bounds;
     private SimulationManager simulationManager;
+    private FoodSpawner foodSpawner;
     private Vector3 velocity;
     private Vector3 wanderDirection;
     private Vector3 wanderTargetDirection;
+    private FoodParticle targetFood;
     private float nextWanderTargetTime;
+    private float energy;
+    private float energyDrainMultiplier = 1f;
 
     public Vector3 Velocity => velocity;
+    public float Energy => energy;
+    public bool IsHungry => energy <= hungerThreshold;
 
     private void OnValidate()
     {
@@ -37,13 +49,20 @@ public sealed class PreyAgent : MonoBehaviour
         wanderTurnRate = Mathf.Max(0.05f, wanderTurnRate);
         wanderTargetInterval = Mathf.Max(0.1f, wanderTargetInterval);
         boundsStrength = Mathf.Max(0f, boundsStrength);
+        maxEnergy = Mathf.Max(1f, maxEnergy);
+        energyDrainRate = Mathf.Max(0f, energyDrainRate);
+        hungerThreshold = Mathf.Clamp(hungerThreshold, 0f, maxEnergy);
+        foodPerceptionRadius = Mathf.Max(0.1f, foodPerceptionRadius);
+        foodSeekWeight = Mathf.Max(0f, foodSeekWeight);
+        eatRadius = Mathf.Max(0.05f, eatRadius);
         turnResponsiveness = Mathf.Max(0.1f, turnResponsiveness);
     }
 
-    public void Initialize(SimulationBounds simulationBounds, SimulationManager manager)
+    public void Initialize(SimulationBounds simulationBounds, SimulationManager manager, FoodSpawner spawner)
     {
         bounds = simulationBounds;
         simulationManager = manager;
+        foodSpawner = spawner;
 
         if (velocity.sqrMagnitude < 0.001f)
         {
@@ -55,6 +74,8 @@ public sealed class PreyAgent : MonoBehaviour
 
     private void Awake()
     {
+        energy = Random.Range(hungerThreshold, maxEnergy);
+        energyDrainMultiplier = Random.Range(0.55f, 1.35f);
         wanderDirection = Random.onUnitSphere;
         wanderTargetDirection = wanderDirection;
         velocity = wanderDirection * maxSpeed * 0.5f;
@@ -64,6 +85,9 @@ public sealed class PreyAgent : MonoBehaviour
     private void Update()
     {
         float deltaTime = Time.deltaTime;
+        energy = Mathf.Max(0f, energy - energyDrainRate * energyDrainMultiplier * deltaTime);
+        targetFood = FindNearestVisibleFood();
+
         Vector3 acceleration = CalculateSteering();
 
         velocity += acceleration * deltaTime;
@@ -77,6 +101,7 @@ public sealed class PreyAgent : MonoBehaviour
             velocity = Vector3.ProjectOnPlane(velocity, (transform.position - bounds.Center).normalized);
         }
 
+        TryConsumeFood();
         RotateTowardVelocity(deltaTime);
     }
 
@@ -100,21 +125,31 @@ public sealed class PreyAgent : MonoBehaviour
             .Slerp(wanderDirection, wanderTargetDirection, wanderTurnRate * Time.deltaTime)
             .normalized;
 
-        Vector3 desiredDirection = wanderDirection * wanderStrength;
+        bool seekingFood = targetFood != null;
+        float hungerPressure = hungerThreshold > 0f
+            ? Mathf.Clamp01((hungerThreshold - energy) / hungerThreshold)
+            : 0f;
+        float wanderMultiplier = seekingFood ? 0.25f : 1f;
+        float alignmentMultiplier = seekingFood ? 0.45f : 1f;
+        float cohesionMultiplier = seekingFood ? 0.2f : 1f;
 
-        AddFlockingSteering(ref desiredDirection);
+        Vector3 desiredDirection = wanderDirection * wanderStrength * wanderMultiplier;
+
+        AddFlockingSteering(ref desiredDirection, alignmentMultiplier, cohesionMultiplier);
+        AddFoodSeekingSteering(ref desiredDirection);
 
         if (bounds != null)
         {
             desiredDirection += bounds.GetCenteringDirection(transform.position) * boundsStrength;
         }
 
-        Vector3 desiredVelocity = desiredDirection.normalized * maxSpeed;
+        float targetSpeed = seekingFood ? maxSpeed : maxSpeed * Mathf.Lerp(0.85f, 1f, hungerPressure);
+        Vector3 desiredVelocity = desiredDirection.normalized * targetSpeed;
         Vector3 steering = desiredVelocity - velocity;
         return Vector3.ClampMagnitude(steering, maxAcceleration);
     }
 
-    private void AddFlockingSteering(ref Vector3 desiredDirection)
+    private void AddFlockingSteering(ref Vector3 desiredDirection, float alignmentMultiplier, float cohesionMultiplier)
     {
         if (simulationManager == null)
         {
@@ -162,13 +197,71 @@ public sealed class PreyAgent : MonoBehaviour
         alignment = (alignment / flockmateCount).normalized;
         cohesion = ((cohesion / flockmateCount) - transform.position).normalized;
 
-        desiredDirection += alignment * alignmentWeight;
-        desiredDirection += cohesion * cohesionWeight;
+        desiredDirection += alignment * alignmentWeight * alignmentMultiplier;
+        desiredDirection += cohesion * cohesionWeight * cohesionMultiplier;
 
         if (separationCount > 0)
         {
             desiredDirection += (separation / separationCount).normalized * separationWeight;
         }
+    }
+
+    private void AddFoodSeekingSteering(ref Vector3 desiredDirection)
+    {
+        if (targetFood == null)
+        {
+            return;
+        }
+
+        Vector3 toFood = targetFood.transform.position - transform.position;
+        float hungerPressure = hungerThreshold > 0f
+            ? Mathf.Clamp01((hungerThreshold - energy) / hungerThreshold)
+            : 1f;
+        desiredDirection += toFood.normalized * foodSeekWeight * Mathf.Lerp(0.75f, 1.25f, hungerPressure);
+    }
+
+    private FoodParticle FindNearestVisibleFood()
+    {
+        if (!IsHungry || foodSpawner == null)
+        {
+            return null;
+        }
+
+        FoodParticle nearestFood = null;
+        float nearestDistanceSqr = foodPerceptionRadius * foodPerceptionRadius;
+
+        foreach (FoodParticle food in foodSpawner.ActiveFood)
+        {
+            if (food == null || !food.IsAvailable)
+            {
+                continue;
+            }
+
+            float distanceSqr = (food.transform.position - transform.position).sqrMagnitude;
+            if (distanceSqr <= nearestDistanceSqr)
+            {
+                nearestDistanceSqr = distanceSqr;
+                nearestFood = food;
+            }
+        }
+
+        return nearestFood;
+    }
+
+    private void TryConsumeFood()
+    {
+        if (targetFood == null)
+        {
+            return;
+        }
+
+        float eatRadiusSqr = eatRadius * eatRadius;
+        if ((targetFood.transform.position - transform.position).sqrMagnitude > eatRadiusSqr)
+        {
+            return;
+        }
+
+        energy = Mathf.Min(maxEnergy, energy + targetFood.Consume());
     }
 
     private void RotateTowardVelocity(float deltaTime)
@@ -191,5 +284,8 @@ public sealed class PreyAgent : MonoBehaviour
 
         Gizmos.color = new Color(1f, 0.35f, 0.2f, 0.35f);
         Gizmos.DrawWireSphere(transform.position, separationRadius);
+
+        Gizmos.color = new Color(0.4f, 1f, 0.35f, 0.25f);
+        Gizmos.DrawWireSphere(transform.position, foodPerceptionRadius);
     }
 }
