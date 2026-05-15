@@ -129,7 +129,12 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   maxSpeed: 5
   maxAcceleration: 9
-  wanderStrength: 3
+  perceptionRadius: 5
+  separationRadius: 1.5
+  separationWeight: 2.4
+  alignmentWeight: 1.1
+  cohesionWeight: 0.9
+  wanderStrength: 1.2
   wanderTurnRate: 0.8
   wanderTargetInterval: 1.5
   boundsStrength: 12
