@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public sealed class SimulationManager : MonoBehaviour
@@ -7,6 +8,10 @@ public sealed class SimulationManager : MonoBehaviour
     [SerializeField] private Transform agentParent;
     [SerializeField] private int startingPreyCount = 30;
     [SerializeField] private bool spawnOnStart = true;
+
+    private readonly List<PreyAgent> preyAgents = new List<PreyAgent>();
+
+    public IReadOnlyList<PreyAgent> PreyAgents => preyAgents;
 
     private void OnValidate()
     {
@@ -35,7 +40,21 @@ public sealed class SimulationManager : MonoBehaviour
         for (int i = 0; i < startingPreyCount; i++)
         {
             PreyAgent prey = Instantiate(preyPrefab, bounds.RandomPointInside(), Random.rotation, parent);
-            prey.Initialize(bounds);
+            RegisterPrey(prey);
+            prey.Initialize(bounds, this);
         }
+    }
+
+    public void RegisterPrey(PreyAgent prey)
+    {
+        if (prey != null && !preyAgents.Contains(prey))
+        {
+            preyAgents.Add(prey);
+        }
+    }
+
+    public void UnregisterPrey(PreyAgent prey)
+    {
+        preyAgents.Remove(prey);
     }
 }
