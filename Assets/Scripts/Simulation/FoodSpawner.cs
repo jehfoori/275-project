@@ -3,6 +3,7 @@ using UnityEngine;
 
 public sealed class FoodSpawner : MonoBehaviour
 {
+    [SerializeField] private bool spawnFood;
     [SerializeField] private SimulationBounds bounds;
     [SerializeField] private FoodParticle foodPrefab;
     [SerializeField] private Transform foodParent;
@@ -24,6 +25,11 @@ public sealed class FoodSpawner : MonoBehaviour
 
     private void Start()
     {
+        if (!spawnFood)
+        {
+            return;
+        }
+
         for (int i = 0; i < initialFoodCount && activeFood.Count < maxFoodCount; i++)
         {
             SpawnFood();
@@ -34,6 +40,11 @@ public sealed class FoodSpawner : MonoBehaviour
 
     private void Update()
     {
+        if (!spawnFood)
+        {
+            return;
+        }
+
         if (Time.time < nextSpawnTime)
         {
             return;
@@ -61,7 +72,7 @@ public sealed class FoodSpawner : MonoBehaviour
         }
 
         Transform parent = foodParent != null ? foodParent : transform;
-        FoodParticle food = Instantiate(foodPrefab, bounds.RandomPointInside(), Random.rotation, parent);
+        FoodParticle food = Instantiate(foodPrefab, bounds.RandomGroundPointInside(), Quaternion.identity, parent);
         food.Initialize(this);
         activeFood.Add(food);
     }

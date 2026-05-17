@@ -1,8 +1,8 @@
-# Artificial Life Aquarium
+# Artificial Life City Simulation
 
 Unity project for our Artificial Life term project.
 
-The project is a 3D ecosystem of autonomous agents. The main agents will use local perception, internal state, steering behavior, flocking rules, food seeking, predator avoidance, and simple priority-based action selection.
+The project is a 3D predator-prey simulation set in a small city. Crowd agents move through a waypoint network, predators can be spawned into the city, and prey agents react by fleeing while predators pursue, wander, and consume nearby prey.
 
 This README is for teammates setting up the repo for development.
 
@@ -27,8 +27,9 @@ Install these before opening the project:
 3. Git
 4. Visual Studio Code
 5. VS Code extension: `Unity` by Microsoft
+6. Git LFS
 
-Git LFS is recommended, but it is not required for basic script and scene work yet. Install it before adding or pulling large binary assets such as models, source art, audio, or video.
+Git LFS is required because the project includes imported model and texture assets. Install it before cloning or pulling the project.
 
 ## Install Unity
 
@@ -47,7 +48,7 @@ You do not need mobile modules for this project.
 
 ## Install Git LFS
 
-Git LFS lets Git handle large binary files without bloating the normal repo history. The current project mostly uses normal Unity files, but the repo is already configured for larger asset types.
+Git LFS lets Git handle large binary files without bloating the normal repo history. The repo uses it for imported Unity art assets.
 
 macOS with Homebrew:
 
@@ -74,7 +75,7 @@ cd 275-project
 git lfs pull
 ```
 
-If `git lfs pull` fails because Git LFS is missing, install Git LFS and rerun it. For now, this should only matter once LFS-tracked assets are added.
+If `git lfs pull` fails because Git LFS is missing, install Git LFS and rerun it.
 
 ## Open the Project
 
@@ -139,8 +140,8 @@ Assets/
     Config/
   Prefabs/
     Agents/
-    Food/
     Environment/
+      City/
   Materials/
   Models/
   VFX/
@@ -162,6 +163,8 @@ Suggested use:
 
 Move and rename Unity assets inside Unity when possible. This helps keep `.meta` files correct.
 
+Imported art assets under `Assets/Blink/` and `Assets/EmaceArt/` have been trimmed to the files still referenced by the current prefabs and scenes. Do not delete the remaining files unless you also update the Unity references that depend on them.
+
 ## Git Workflow
 
 Before starting work, pull the latest changes:
@@ -181,7 +184,6 @@ Examples:
 
 ```text
 feature/prey-flocking
-feature/food-spawner
 feature/predator-pursuit
 feature/simulation-ui
 ```
@@ -248,14 +250,13 @@ If you create, move, or rename assets, commit the matching `.meta` files too.
 
 ## Current Development Target
 
-The initial goal is a working simulation scene with:
+The current goal is a working city simulation scene with:
 
-- A bounded 3D environment
-- Multiple prey agents
-- Flocking behavior
-- Food spawning and seeking
-- Predator pursuit
-- Prey fleeing behavior
+- A bounded city environment
+- Multiple crowd/prey agents moving through city waypoints
+- Predator spawning and pursuit
+- Prey fleeing and simple death/eating behavior
+- Camera view controls
 - Basic UI controls or visible simulation parameters
 
 Keep implementation simple first. Visual polish can build on top of working behavior.
