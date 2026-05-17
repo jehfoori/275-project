@@ -3,10 +3,12 @@ using UnityEngine;
 public sealed class SimulationBounds : MonoBehaviour
 {
     [SerializeField] private Vector3 size = new Vector3(30f, 18f, 30f);
+    [SerializeField] private float groundY;
     [SerializeField] private Color gizmoColor = new Color(0.25f, 0.8f, 1f, 0.35f);
 
     public Vector3 Center => transform.position;
     public Vector3 Size => size;
+    public float GroundY => groundY;
 
     public Vector3 RandomPointInside()
     {
@@ -18,13 +20,45 @@ public sealed class SimulationBounds : MonoBehaviour
             Random.Range(-halfSize.z, halfSize.z));
     }
 
+    public Vector3 RandomGroundPointInside()
+    {
+        Vector3 halfSize = size * 0.5f;
+
+        return new Vector3(
+            Center.x + Random.Range(-halfSize.x, halfSize.x),
+            groundY,
+            Center.z + Random.Range(-halfSize.z, halfSize.z));
+    }
+
+    public Vector3 RandomGroundDirection()
+    {
+        Vector2 direction = Random.insideUnitCircle.normalized;
+        if (direction.sqrMagnitude < 0.001f)
+        {
+            return Vector3.forward;
+        }
+
+        return new Vector3(direction.x, 0f, direction.y);
+    }
+
+    public Vector3 ProjectPointToGround(Vector3 position)
+    {
+        position.y = groundY;
+        return position;
+    }
+
+    public Vector3 ProjectVectorToGround(Vector3 vector)
+    {
+        vector.y = 0f;
+        return vector;
+    }
+
     public bool Contains(Vector3 position)
     {
         Vector3 localPosition = position - Center;
         Vector3 halfSize = size * 0.5f;
 
         return Mathf.Abs(localPosition.x) <= halfSize.x
-            && Mathf.Abs(localPosition.y) <= halfSize.y
             && Mathf.Abs(localPosition.z) <= halfSize.z;
     }
 
@@ -35,7 +69,7 @@ public sealed class SimulationBounds : MonoBehaviour
 
         return Center + new Vector3(
             Mathf.Clamp(localPosition.x, -halfSize.x, halfSize.x),
-            Mathf.Clamp(localPosition.y, -halfSize.y, halfSize.y),
+            groundY - Center.y,
             Mathf.Clamp(localPosition.z, -halfSize.z, halfSize.z));
     }
 
@@ -45,7 +79,7 @@ public sealed class SimulationBounds : MonoBehaviour
         Vector3 halfSize = size * 0.5f;
         Vector3 normalizedOffset = new Vector3(
             halfSize.x > 0f ? localPosition.x / halfSize.x : 0f,
-            halfSize.y > 0f ? localPosition.y / halfSize.y : 0f,
+            0f,
             halfSize.z > 0f ? localPosition.z / halfSize.z : 0f);
 
         float distanceFromCenter = normalizedOffset.magnitude;
@@ -54,7 +88,7 @@ public sealed class SimulationBounds : MonoBehaviour
             return Vector3.zero;
         }
 
-        return (Center - position).normalized;
+        return ProjectVectorToGround(Center - position).normalized;
     }
 
     private void OnValidate()
@@ -68,6 +102,6 @@ public sealed class SimulationBounds : MonoBehaviour
     private void OnDrawGizmos()
     {
         Gizmos.color = gizmoColor;
-        Gizmos.DrawWireCube(Center, size);
+        Gizmos.DrawWireCube(ProjectPointToGround(Center), new Vector3(size.x, 0.05f, size.z));
     }
 }
