@@ -5,6 +5,10 @@ public sealed class AgentVisualController : MonoBehaviour
 {
     [SerializeField] private Animator animator;
     [SerializeField] private string speedParameter = "Speed";
+    [SerializeField] private string attackTrigger = "Attack";
+    [SerializeField] private string celebrateTrigger = "Celebrate";
+    [SerializeField] private string hitTrigger = "Hit";
+    [SerializeField] private string defeatTrigger = "Defeat";
     [SerializeField] private float fullRunSpeed = 5f;
     [SerializeField] private float idleSpeedThreshold = 0.15f;
     [SerializeField] private float speedDampTime = 0.12f;
@@ -14,6 +18,15 @@ public sealed class AgentVisualController : MonoBehaviour
     private PreyAgent preyAgent;
     private PredatorAgent predatorAgent;
     private int speedParameterHash;
+    private int attackTriggerHash;
+    private int celebrateTriggerHash;
+    private int hitTriggerHash;
+    private int defeatTriggerHash;
+    private bool hasSpeedParameter;
+    private bool hasAttackTrigger;
+    private bool hasCelebrateTrigger;
+    private bool hasHitTrigger;
+    private bool hasDefeatTrigger;
     private float baseAnimatorSpeed = 1f;
 
     private void Awake()
@@ -27,6 +40,10 @@ public sealed class AgentVisualController : MonoBehaviour
         }
 
         speedParameterHash = Animator.StringToHash(speedParameter);
+        attackTriggerHash = Animator.StringToHash(attackTrigger);
+        celebrateTriggerHash = Animator.StringToHash(celebrateTrigger);
+        hitTriggerHash = Animator.StringToHash(hitTrigger);
+        defeatTriggerHash = Animator.StringToHash(defeatTrigger);
         ConfigureAnimator();
     }
 
@@ -47,9 +64,29 @@ public sealed class AgentVisualController : MonoBehaviour
         }
     }
 
+    public void TriggerAttack()
+    {
+        TrySetTrigger(attackTriggerHash, hasAttackTrigger);
+    }
+
+    public void TriggerCelebrate()
+    {
+        TrySetTrigger(celebrateTriggerHash, hasCelebrateTrigger);
+    }
+
+    public void TriggerHit()
+    {
+        TrySetTrigger(hitTriggerHash, hasHitTrigger);
+    }
+
+    public void TriggerDefeat()
+    {
+        TrySetTrigger(defeatTriggerHash, hasDefeatTrigger);
+    }
+
     private void Update()
     {
-        if (animator == null || string.IsNullOrEmpty(speedParameter))
+        if (animator == null || !hasSpeedParameter)
         {
             return;
         }
@@ -82,6 +119,7 @@ public sealed class AgentVisualController : MonoBehaviour
         }
 
         animator.applyRootMotion = false;
+        CacheAnimatorParameters();
 
         baseAnimatorSpeed = animator.speed;
         animator.speed = baseAnimatorSpeed * Random.Range(animationSpeedRange.x, animationSpeedRange.y);
@@ -90,5 +128,50 @@ public sealed class AgentVisualController : MonoBehaviour
         {
             animator.Update(Random.Range(0f, initialPhaseOffset));
         }
+    }
+
+    private void CacheAnimatorParameters()
+    {
+        hasSpeedParameter = false;
+        hasAttackTrigger = false;
+        hasCelebrateTrigger = false;
+        hasHitTrigger = false;
+        hasDefeatTrigger = false;
+
+        AnimatorControllerParameter[] parameters = animator.parameters;
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            AnimatorControllerParameter parameter = parameters[i];
+            if (parameter.type == AnimatorControllerParameterType.Float && parameter.nameHash == speedParameterHash)
+            {
+                hasSpeedParameter = true;
+            }
+            else if (parameter.type == AnimatorControllerParameterType.Trigger && parameter.nameHash == attackTriggerHash)
+            {
+                hasAttackTrigger = true;
+            }
+            else if (parameter.type == AnimatorControllerParameterType.Trigger && parameter.nameHash == celebrateTriggerHash)
+            {
+                hasCelebrateTrigger = true;
+            }
+            else if (parameter.type == AnimatorControllerParameterType.Trigger && parameter.nameHash == hitTriggerHash)
+            {
+                hasHitTrigger = true;
+            }
+            else if (parameter.type == AnimatorControllerParameterType.Trigger && parameter.nameHash == defeatTriggerHash)
+            {
+                hasDefeatTrigger = true;
+            }
+        }
+    }
+
+    private void TrySetTrigger(int triggerHash, bool hasTrigger)
+    {
+        if (animator == null || !hasTrigger)
+        {
+            return;
+        }
+
+        animator.SetTrigger(triggerHash);
     }
 }

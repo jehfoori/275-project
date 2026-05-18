@@ -3,6 +3,29 @@ using UnityEngine;
 
 public sealed class PreyAgent : MonoBehaviour
 {
+    public enum HumanRole
+    {
+        Civilian,
+        Soldier
+    }
+
+    private enum HumanState
+    {
+        Calm,
+        Evacuating,
+        Escaped
+    }
+
+    private enum SoldierState
+    {
+        Patrol,
+        Alert,
+        Rally,
+        Engage,
+        Withdraw
+    }
+
+    [SerializeField] private HumanRole role = HumanRole.Civilian;
     [SerializeField] private float maxSpeed = 5f;
     [SerializeField] private float maxAcceleration = 9f;
     [SerializeField] private float perceptionRadius = 5f;
@@ -26,6 +49,32 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float panicSpeedMultiplier = 1.45f;
     [SerializeField] private float panicAccelerationMultiplier = 1.35f;
     [SerializeField] private float threatMemoryTime = 0.8f;
+    [Header("Evacuation")]
+    [SerializeField] private float evacuationArrivalRadius = 4f;
+    [SerializeField] private float evacuationPathWeightMultiplier = 1.2f;
+    [SerializeField] private float evacuationWanderMultiplier = 0.2f;
+    [Header("Panic Contagion")]
+    [SerializeField] private float panicContagionRadius = 14f;
+    [SerializeField] private float panicContagionCheckInterval = 0.35f;
+    [SerializeField] private int panicContagionMinNeighbors = 2;
+    [SerializeField] private float panicContagionRatio = 0.35f;
+    [Header("Soldier")]
+    [SerializeField] private float soldierThreatRadius = 26f;
+    [SerializeField] private float soldierAttackRadius = 4f;
+    [SerializeField] private float soldierAttackDamage = 18f;
+    [SerializeField] private float soldierAttackCooldown = 1.15f;
+    [SerializeField] private float soldierDefensiveAttackRadiusMultiplier = 1.15f;
+    [SerializeField] private float soldierApproachWeight = 18f;
+    [SerializeField] private float soldierAlertEvacueeRadius = 18f;
+    [SerializeField] private int soldierAlertEvacueeMinNeighbors = 2;
+    [SerializeField] private float soldierAlertEvacueeRatio = 0.25f;
+    [SerializeField] private int minSoldiersToEngage = 3;
+    [SerializeField] private float soldierSupportRadius = 24f;
+    [SerializeField] private float soldierRallyMinDistance = 12f;
+    [SerializeField] private float soldierRallyMaxDistance = 28f;
+    [SerializeField] private float soldierRallyApproachWeight = 12f;
+    [SerializeField] private float soldierRallyRetreatWeight = 16f;
+    [SerializeField] private float soldierRallyStrafeWeight = 3f;
 
     private readonly List<int> route = new List<int>();
     private readonly List<PreyAgent> nearbyAgents = new List<PreyAgent>(32);
@@ -33,28 +82,45 @@ public sealed class PreyAgent : MonoBehaviour
     private SimulationBounds bounds;
     private SimulationManager simulationManager;
     private CityNavigation navigation;
+    private AgentVisualController visualController;
     private Vector3 velocity;
     private Vector3 wanderDirection;
     private Vector3 wanderTargetDirection;
     private float nextWanderTargetTime;
     private float pauseUntilTime;
     private float lastThreatTime = -999f;
+    private float nextSoldierAttackTime;
+    private float nextPanicContagionCheckTime;
     private Vector3 lastThreatPosition;
+    private PredatorAgent soldierTarget;
     private int routeIndex;
     private int currentNodeIndex = -1;
+    private int evacuationTargetNodeIndex = -1;
+    private HumanState humanState = HumanState.Calm;
+    private SoldierState soldierState = SoldierState.Patrol;
     private bool isDead;
 
+    public HumanRole Role => role;
     public Vector3 Velocity => velocity;
+    public bool IsEvacuating => humanState == HumanState.Evacuating;
     public IReadOnlyList<int> DebugRoute => route;
     public int DebugRouteIndex => routeIndex;
     public bool IsPaused => Time.time < pauseUntilTime;
-    public Vector3 DebugTargetPosition => HasActiveRoute ? navigation.Nodes[route[routeIndex]].Position : transform.position;
+    public Vector3 DebugTargetPosition => HasActiveEvacuationTarget
+        ? navigation.Nodes[evacuationTargetNodeIndex].Position
+        : HasActiveRoute
+            ? navigation.Nodes[route[routeIndex]].Position
+            : transform.position;
 
     private bool HasActiveRoute => navigation != null
         && routeIndex >= 0
         && routeIndex < route.Count
         && route[routeIndex] >= 0
         && route[routeIndex] < navigation.Nodes.Count;
+
+    private bool HasActiveEvacuationTarget => navigation != null
+        && evacuationTargetNodeIndex >= 0
+        && evacuationTargetNodeIndex < navigation.Nodes.Count;
 
     private void OnValidate()
     {
@@ -83,6 +149,34 @@ public sealed class PreyAgent : MonoBehaviour
         panicSpeedMultiplier = Mathf.Max(1f, panicSpeedMultiplier);
         panicAccelerationMultiplier = Mathf.Max(1f, panicAccelerationMultiplier);
         threatMemoryTime = Mathf.Max(0f, threatMemoryTime);
+        evacuationArrivalRadius = Mathf.Max(0.1f, evacuationArrivalRadius);
+        evacuationPathWeightMultiplier = Mathf.Max(0f, evacuationPathWeightMultiplier);
+        evacuationWanderMultiplier = Mathf.Clamp01(evacuationWanderMultiplier);
+        panicContagionRadius = Mathf.Max(0.1f, panicContagionRadius);
+        panicContagionCheckInterval = Mathf.Max(0.05f, panicContagionCheckInterval);
+        panicContagionMinNeighbors = Mathf.Max(1, panicContagionMinNeighbors);
+        panicContagionRatio = Mathf.Clamp01(panicContagionRatio);
+        soldierThreatRadius = Mathf.Max(0.1f, soldierThreatRadius);
+        soldierAttackRadius = Mathf.Clamp(soldierAttackRadius, 0.1f, soldierThreatRadius);
+        soldierAttackDamage = Mathf.Max(0f, soldierAttackDamage);
+        soldierAttackCooldown = Mathf.Max(0f, soldierAttackCooldown);
+        soldierDefensiveAttackRadiusMultiplier = Mathf.Max(1f, soldierDefensiveAttackRadiusMultiplier);
+        soldierApproachWeight = Mathf.Max(0f, soldierApproachWeight);
+        soldierAlertEvacueeRadius = Mathf.Max(0.1f, soldierAlertEvacueeRadius);
+        soldierAlertEvacueeMinNeighbors = Mathf.Max(1, soldierAlertEvacueeMinNeighbors);
+        soldierAlertEvacueeRatio = Mathf.Clamp01(soldierAlertEvacueeRatio);
+        minSoldiersToEngage = Mathf.Max(1, minSoldiersToEngage);
+        soldierSupportRadius = Mathf.Max(0.1f, soldierSupportRadius);
+        soldierRallyMinDistance = Mathf.Max(soldierAttackRadius, soldierRallyMinDistance);
+        soldierRallyMaxDistance = Mathf.Max(soldierRallyMinDistance + 0.1f, soldierRallyMaxDistance);
+        soldierRallyApproachWeight = Mathf.Max(0f, soldierRallyApproachWeight);
+        soldierRallyRetreatWeight = Mathf.Max(0f, soldierRallyRetreatWeight);
+        soldierRallyStrafeWeight = Mathf.Max(0f, soldierRallyStrafeWeight);
+    }
+
+    public void SetRole(HumanRole newRole)
+    {
+        role = newRole;
     }
 
     public void Initialize(SimulationBounds simulationBounds, SimulationManager manager, CityNavigation cityNavigation)
@@ -104,10 +198,12 @@ public sealed class PreyAgent : MonoBehaviour
 
     private void Awake()
     {
+        visualController = GetComponent<AgentVisualController>();
         wanderDirection = GetRandomGroundDirection();
         wanderTargetDirection = wanderDirection;
         velocity = wanderDirection * maxSpeed * Random.Range(0.35f, 0.75f);
         nextWanderTargetTime = Time.time + Random.Range(0f, wanderTargetInterval);
+        nextPanicContagionCheckTime = Time.time + Random.Range(0f, panicContagionCheckInterval);
     }
 
     private void Update()
@@ -119,6 +215,7 @@ public sealed class PreyAgent : MonoBehaviour
 
         float deltaTime = Time.deltaTime;
         UpdateRouteState();
+        TryPanicContagion();
 
         Vector3 acceleration = CalculateSteering();
         velocity += acceleration * deltaTime;
@@ -136,10 +233,12 @@ public sealed class PreyAgent : MonoBehaviour
 
         transform.position = FlattenPoint(transform.position);
         ResolveObstacleOverlap();
+        TryEscapeIfArrived();
+        TrySoldierAttack();
         RotateTowardVelocity(deltaTime);
     }
 
-    public void Die()
+    public void Die(PredatorAgent killedBy = null)
     {
         if (isDead)
         {
@@ -149,7 +248,14 @@ public sealed class PreyAgent : MonoBehaviour
         isDead = true;
         if (simulationManager != null)
         {
-            simulationManager.UnregisterPrey(this);
+            if (killedBy != null)
+            {
+                simulationManager.RecordHumanCasualty(this);
+            }
+            else
+            {
+                simulationManager.UnregisterPrey(this);
+            }
         }
 
         Destroy(gameObject);
@@ -167,6 +273,12 @@ public sealed class PreyAgent : MonoBehaviour
     {
         if (navigation == null || !navigation.HasWaypoints)
         {
+            return;
+        }
+
+        if (humanState == HumanState.Evacuating)
+        {
+            UpdateEvacuationTargetState();
             return;
         }
 
@@ -188,6 +300,7 @@ public sealed class PreyAgent : MonoBehaviour
         }
 
         currentNodeIndex = route[routeIndex];
+
         routeIndex++;
 
         if (routeIndex < route.Count)
@@ -202,6 +315,8 @@ public sealed class PreyAgent : MonoBehaviour
 
     private Vector3 CalculateSteering()
     {
+        UpdateSoldierState();
+
         if (Time.time >= nextWanderTargetTime)
         {
             wanderTargetDirection = GetRandomGroundDirection();
@@ -212,11 +327,68 @@ public sealed class PreyAgent : MonoBehaviour
             .Slerp(wanderDirection, wanderTargetDirection, wanderTurnRate * Time.deltaTime)
             .normalized;
 
-        Vector3 desiredDirection = wanderDirection * wanderStrength;
+        float activeWanderStrength = humanState == HumanState.Evacuating
+            ? wanderStrength * evacuationWanderMultiplier
+            : wanderStrength;
+        Vector3 desiredDirection = wanderDirection * activeWanderStrength;
 
-        bool isThreatened = AddPredatorFleeingSteering(ref desiredDirection);
+        soldierTarget = role == HumanRole.Soldier && soldierState != SoldierState.Withdraw
+            ? FindNearestPredator(soldierThreatRadius)
+            : null;
+        if (role == HumanRole.Soldier && soldierTarget == null && (soldierState == SoldierState.Rally || soldierState == SoldierState.Engage))
+        {
+            soldierState = SoldierState.Alert;
+        }
 
-        if (!IsPaused && HasActiveRoute)
+        bool isEngagingPredator = false;
+        bool isThreatened = false;
+
+        if (role == HumanRole.Soldier && soldierState == SoldierState.Withdraw)
+        {
+            isThreatened = AddPredatorFleeingSteering(ref desiredDirection);
+        }
+        else if (role == HumanRole.Soldier && soldierTarget != null)
+        {
+            int nearbySoldierCount = CountNearbyCombatSoldiers(soldierTarget);
+            soldierState = nearbySoldierCount >= minSoldiersToEngage ? SoldierState.Engage : SoldierState.Rally;
+            isEngagingPredator = true;
+
+            if (soldierState == SoldierState.Engage)
+            {
+                AddSoldierEngagementSteering(ref desiredDirection, soldierTarget);
+            }
+            else
+            {
+                AddSoldierRallySteering(ref desiredDirection, soldierTarget);
+                isThreatened = IsSoldierInRallyDanger(soldierTarget);
+            }
+        }
+        else
+        {
+            isThreatened = AddPredatorFleeingSteering(ref desiredDirection);
+        }
+
+        if (humanState == HumanState.Evacuating)
+        {
+            if (isThreatened)
+            {
+                evacuationTargetNodeIndex = -1;
+            }
+            else
+            {
+                EnsureEvacuationTarget();
+            }
+        }
+
+        if (!isEngagingPredator && !isThreatened && humanState == HumanState.Evacuating && HasActiveEvacuationTarget)
+        {
+            Vector3 toTarget = FlattenVector(navigation.Nodes[evacuationTargetNodeIndex].Position - transform.position);
+            if (toTarget.sqrMagnitude > 0.001f)
+            {
+                desiredDirection += toTarget.normalized * pathFollowWeight * evacuationPathWeightMultiplier;
+            }
+        }
+        else if (!isEngagingPredator && !IsPaused && HasActiveRoute)
         {
             Vector3 toTarget = FlattenVector(navigation.Nodes[route[routeIndex]].Position - transform.position);
             if (toTarget.sqrMagnitude > 0.001f)
@@ -229,7 +401,7 @@ public sealed class PreyAgent : MonoBehaviour
             desiredDirection += -velocity.normalized * 0.5f;
         }
 
-        AddFlockingSteering(ref desiredDirection, !isThreatened);
+        AddFlockingSteering(ref desiredDirection, humanState == HumanState.Calm && !isThreatened && !isEngagingPredator);
         AddObstacleSteering(ref desiredDirection);
 
         if (bounds != null)
@@ -238,13 +410,235 @@ public sealed class PreyAgent : MonoBehaviour
         }
 
         desiredDirection = FlattenVector(desiredDirection);
-        float targetSpeed = isThreatened ? maxSpeed * panicSpeedMultiplier : IsPaused ? maxSpeed * 0.15f : maxSpeed;
+        bool shouldSlowForPause = IsPaused && humanState != HumanState.Evacuating;
+        float targetSpeed = isThreatened ? maxSpeed * panicSpeedMultiplier : shouldSlowForPause ? maxSpeed * 0.15f : maxSpeed;
         float targetAcceleration = isThreatened ? maxAcceleration * panicAccelerationMultiplier : maxAcceleration;
         Vector3 desiredVelocity = desiredDirection.sqrMagnitude > 0.001f
             ? desiredDirection.normalized * targetSpeed
             : Vector3.zero;
         Vector3 steering = desiredVelocity - velocity;
         return Vector3.ClampMagnitude(FlattenVector(steering), targetAcceleration);
+    }
+
+    private PredatorAgent FindNearestPredator(float radius)
+    {
+        if (simulationManager == null)
+        {
+            return null;
+        }
+
+        simulationManager.GetNearbyPredators(transform.position, radius, nearbyPredators);
+
+        PredatorAgent nearest = null;
+        float nearestDistanceSqr = radius * radius;
+
+        for (int i = 0; i < nearbyPredators.Count; i++)
+        {
+            PredatorAgent predator = nearbyPredators[i];
+            if (predator == null || predator.IsDefeated)
+            {
+                continue;
+            }
+
+            float distanceSqr = FlattenVector(predator.transform.position - transform.position).sqrMagnitude;
+            if (distanceSqr < nearestDistanceSqr)
+            {
+                nearest = predator;
+                nearestDistanceSqr = distanceSqr;
+            }
+        }
+
+        return nearest;
+    }
+
+    private void UpdateSoldierState()
+    {
+        if (role != HumanRole.Soldier || soldierState == SoldierState.Withdraw)
+        {
+            return;
+        }
+
+        if (simulationManager != null && simulationManager.ShouldSoldiersWithdraw)
+        {
+            BeginSoldierWithdraw();
+            return;
+        }
+
+        if (FindNearestPredator(soldierThreatRadius) != null || HasNearbyEvacuatingCiviliansForAlert())
+        {
+            if (soldierState == SoldierState.Patrol)
+            {
+                soldierState = SoldierState.Alert;
+                pauseUntilTime = 0f;
+            }
+        }
+    }
+
+    private bool HasNearbyEvacuatingCiviliansForAlert()
+    {
+        if (simulationManager == null)
+        {
+            return false;
+        }
+
+        simulationManager.GetNearbyPrey(transform.position, soldierAlertEvacueeRadius, nearbyAgents);
+
+        int civilianCount = 0;
+        int evacuatingCivilianCount = 0;
+        float radiusSqr = soldierAlertEvacueeRadius * soldierAlertEvacueeRadius;
+
+        for (int i = 0; i < nearbyAgents.Count; i++)
+        {
+            PreyAgent other = nearbyAgents[i];
+            if (other == null || other == this || other.Role != HumanRole.Civilian)
+            {
+                continue;
+            }
+
+            Vector3 offset = FlattenVector(other.transform.position - transform.position);
+            if (offset.sqrMagnitude > radiusSqr)
+            {
+                continue;
+            }
+
+            civilianCount++;
+            if (other.IsEvacuating)
+            {
+                evacuatingCivilianCount++;
+            }
+        }
+
+        return evacuatingCivilianCount >= soldierAlertEvacueeMinNeighbors
+            && civilianCount > 0
+            && evacuatingCivilianCount / (float)civilianCount >= soldierAlertEvacueeRatio;
+    }
+
+    private int CountNearbyCombatSoldiers(PredatorAgent predator)
+    {
+        if (simulationManager == null || predator == null)
+        {
+            return 0;
+        }
+
+        simulationManager.GetNearbyPrey(predator.transform.position, soldierSupportRadius, nearbyAgents);
+
+        int count = 0;
+        float supportRadiusSqr = soldierSupportRadius * soldierSupportRadius;
+
+        for (int i = 0; i < nearbyAgents.Count; i++)
+        {
+            PreyAgent other = nearbyAgents[i];
+            if (other == null || other.Role != HumanRole.Soldier || other.soldierState == SoldierState.Withdraw)
+            {
+                continue;
+            }
+
+            Vector3 offset = FlattenVector(other.transform.position - predator.transform.position);
+            if (offset.sqrMagnitude <= supportRadiusSqr)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private void AddSoldierEngagementSteering(ref Vector3 desiredDirection, PredatorAgent predator)
+    {
+        Vector3 toPredator = FlattenVector(predator.transform.position - transform.position);
+        if (toPredator.sqrMagnitude <= 0.001f)
+        {
+            return;
+        }
+
+        float distance = toPredator.magnitude;
+        if (distance > soldierAttackRadius * 0.75f)
+        {
+            desiredDirection += toPredator.normalized * soldierApproachWeight;
+            return;
+        }
+
+        desiredDirection += -velocity.normalized * 0.4f;
+    }
+
+    private void AddSoldierRallySteering(ref Vector3 desiredDirection, PredatorAgent predator)
+    {
+        Vector3 toPredator = FlattenVector(predator.transform.position - transform.position);
+        if (toPredator.sqrMagnitude <= 0.001f)
+        {
+            return;
+        }
+
+        float distance = toPredator.magnitude;
+        Vector3 towardPredator = toPredator / distance;
+
+        if (distance < soldierRallyMinDistance)
+        {
+            desiredDirection += -towardPredator * soldierRallyRetreatWeight;
+            return;
+        }
+
+        if (distance > soldierRallyMaxDistance)
+        {
+            desiredDirection += towardPredator * soldierRallyApproachWeight;
+            return;
+        }
+
+        float strafeSign = (GetInstanceID() & 1) == 0 ? 1f : -1f;
+        Vector3 lateral = Vector3.Cross(Vector3.up, towardPredator).normalized * strafeSign;
+        desiredDirection += lateral * soldierRallyStrafeWeight;
+        desiredDirection += -velocity.normalized * 0.25f;
+    }
+
+    private bool IsSoldierInRallyDanger(PredatorAgent predator)
+    {
+        if (predator == null)
+        {
+            return false;
+        }
+
+        float dangerDistance = Mathf.Max(soldierAttackRadius, soldierRallyMinDistance);
+        return FlattenVector(predator.transform.position - transform.position).sqrMagnitude <= dangerDistance * dangerDistance;
+    }
+
+    private void TrySoldierAttack()
+    {
+        if (role != HumanRole.Soldier || Time.time < nextSoldierAttackTime)
+        {
+            return;
+        }
+
+        bool canDefensivelyAttack = soldierState == SoldierState.Rally;
+        if (soldierState != SoldierState.Engage && !canDefensivelyAttack)
+        {
+            return;
+        }
+
+        if (soldierTarget == null || soldierTarget.IsDefeated)
+        {
+            soldierTarget = FindNearestPredator(soldierAttackRadius);
+        }
+
+        if (soldierTarget == null)
+        {
+            return;
+        }
+
+        float activeAttackRadius = canDefensivelyAttack
+            ? soldierAttackRadius * soldierDefensiveAttackRadiusMultiplier
+            : soldierAttackRadius;
+        if (FlattenVector(soldierTarget.transform.position - transform.position).sqrMagnitude > activeAttackRadius * activeAttackRadius)
+        {
+            return;
+        }
+
+        bool damageApplied = soldierTarget.TakeDamage(soldierAttackDamage);
+        if (damageApplied && visualController != null)
+        {
+            visualController.TriggerAttack();
+        }
+
+        nextSoldierAttackTime = Time.time + soldierAttackCooldown;
     }
 
     private bool AddPredatorFleeingSteering(ref Vector3 desiredDirection)
@@ -263,7 +657,7 @@ public sealed class PreyAgent : MonoBehaviour
         for (int i = 0; i < nearbyPredators.Count; i++)
         {
             PredatorAgent predator = nearbyPredators[i];
-            if (predator == null)
+            if (predator == null || predator.IsDefeated)
             {
                 continue;
             }
@@ -289,6 +683,7 @@ public sealed class PreyAgent : MonoBehaviour
         if (sawThreat)
         {
             lastThreatTime = Time.time;
+            BeginEvacuation();
         }
         else if (IsThreatened)
         {
@@ -306,6 +701,85 @@ public sealed class PreyAgent : MonoBehaviour
 
         desiredDirection += fleeDirection.normalized * predatorFleeWeight;
         return true;
+    }
+
+    private void BeginEvacuation()
+    {
+        if (role != HumanRole.Civilian || humanState != HumanState.Calm)
+        {
+            return;
+        }
+
+        humanState = HumanState.Evacuating;
+        evacuationTargetNodeIndex = -1;
+        pauseUntilTime = 0f;
+        route.Clear();
+        routeIndex = 0;
+        EnsureEvacuationTarget();
+    }
+
+    private void BeginSoldierWithdraw()
+    {
+        if (role != HumanRole.Soldier || soldierState == SoldierState.Withdraw)
+        {
+            return;
+        }
+
+        soldierState = SoldierState.Withdraw;
+        humanState = HumanState.Evacuating;
+        soldierTarget = null;
+        evacuationTargetNodeIndex = -1;
+        pauseUntilTime = 0f;
+        route.Clear();
+        routeIndex = 0;
+        EnsureEvacuationTarget();
+    }
+
+    private void TryPanicContagion()
+    {
+        if (role != HumanRole.Civilian || humanState != HumanState.Calm || simulationManager == null || Time.time < nextPanicContagionCheckTime)
+        {
+            return;
+        }
+
+        nextPanicContagionCheckTime = Time.time + panicContagionCheckInterval;
+        simulationManager.GetNearbyPrey(transform.position, panicContagionRadius, nearbyAgents);
+
+        int civilianNeighborCount = 0;
+        int evacuatingNeighborCount = 0;
+        float radiusSqr = panicContagionRadius * panicContagionRadius;
+
+        for (int i = 0; i < nearbyAgents.Count; i++)
+        {
+            PreyAgent other = nearbyAgents[i];
+            if (other == null || other == this || other.Role != HumanRole.Civilian)
+            {
+                continue;
+            }
+
+            Vector3 offset = FlattenVector(other.transform.position - transform.position);
+            if (offset.sqrMagnitude > radiusSqr)
+            {
+                continue;
+            }
+
+            civilianNeighborCount++;
+            if (other.IsEvacuating)
+            {
+                evacuatingNeighborCount++;
+            }
+        }
+
+        if (evacuatingNeighborCount < panicContagionMinNeighbors || civilianNeighborCount == 0)
+        {
+            return;
+        }
+
+        float evacuatingRatio = evacuatingNeighborCount / (float)civilianNeighborCount;
+        if (evacuatingRatio >= panicContagionRatio)
+        {
+            BeginEvacuation();
+        }
     }
 
     private void AddFlockingSteering(ref Vector3 desiredDirection, bool includeGroupPull)
@@ -396,6 +870,11 @@ public sealed class PreyAgent : MonoBehaviour
             return;
         }
 
+        if (humanState == HumanState.Evacuating)
+        {
+            return;
+        }
+
         int startIndex = currentNodeIndex >= 0 ? currentNodeIndex : navigation.GetNearestNodeIndex(transform.position);
         int targetIndex = navigation.GetRandomDifferentNodeIndex(startIndex);
 
@@ -418,6 +897,79 @@ public sealed class PreyAgent : MonoBehaviour
                 routeIndex = 1;
             }
         }
+    }
+
+    private void EnsureEvacuationTarget()
+    {
+        if (humanState != HumanState.Evacuating || simulationManager == null)
+        {
+            return;
+        }
+
+        if (HasActiveEvacuationTarget)
+        {
+            return;
+        }
+
+        simulationManager.TryGetEvacuationTargetNode(transform.position, out evacuationTargetNodeIndex);
+    }
+
+    private void UpdateEvacuationTargetState()
+    {
+        if (!HasActiveEvacuationTarget)
+        {
+            EnsureEvacuationTarget();
+            return;
+        }
+
+        Vector3 targetPosition = navigation.Nodes[evacuationTargetNodeIndex].Position;
+        if (FlattenVector(targetPosition - transform.position).sqrMagnitude > evacuationArrivalRadius * evacuationArrivalRadius)
+        {
+            return;
+        }
+
+        currentNodeIndex = evacuationTargetNodeIndex;
+        if (simulationManager != null && simulationManager.IsEvacuationExitNode(currentNodeIndex))
+        {
+            Escape();
+            return;
+        }
+
+        if (simulationManager != null && simulationManager.TryGetNextEvacuationNode(currentNodeIndex, out int nextNodeIndex))
+        {
+            evacuationTargetNodeIndex = nextNodeIndex;
+            return;
+        }
+
+        evacuationTargetNodeIndex = -1;
+    }
+
+    private void TryEscapeIfArrived()
+    {
+        if (humanState != HumanState.Evacuating || navigation == null)
+        {
+            return;
+        }
+
+        UpdateEvacuationTargetState();
+    }
+
+    private void Escape()
+    {
+        if (isDead || humanState == HumanState.Escaped)
+        {
+            return;
+        }
+
+        humanState = HumanState.Escaped;
+        isDead = true;
+
+        if (simulationManager != null)
+        {
+            simulationManager.RecordHumanEscaped(this);
+        }
+
+        Destroy(gameObject);
     }
 
     private void ResolveObstacleOverlap()

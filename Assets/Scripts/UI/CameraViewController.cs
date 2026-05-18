@@ -6,9 +6,10 @@ public sealed class CameraViewController : MonoBehaviour
     [SerializeField] private Transform viewRoot;
     [SerializeField] private float transitionDuration = 0.45f;
     [SerializeField] private bool snapToFirstViewOnStart = true;
-    [SerializeField] private bool showButtons = true;
-    [SerializeField] private Vector2 buttonSize = new Vector2(140f, 34f);
-    [SerializeField] private float buttonSpacing = 8f;
+    [SerializeField] private bool showViewSelector = true;
+    [SerializeField] private Vector2 arrowButtonSize = new Vector2(42f, 34f);
+    [SerializeField] private Vector2 labelSize = new Vector2(260f, 34f);
+    [SerializeField] private float selectorSpacing = 8f;
     [SerializeField] private float bottomMargin = 36f;
 
     private readonly List<Transform> views = new List<Transform>();
@@ -21,7 +22,7 @@ public sealed class CameraViewController : MonoBehaviour
     private bool isTransitioning;
     private bool hasSnappedToInitialView;
     private GUIStyle buttonStyle;
-    private GUIStyle activeButtonStyle;
+    private GUIStyle labelStyle;
 
     private void Awake()
     {
@@ -71,6 +72,28 @@ public sealed class CameraViewController : MonoBehaviour
         {
             SnapToView(index);
         }
+    }
+
+    public void NextView()
+    {
+        if (views.Count == 0)
+        {
+            return;
+        }
+
+        int nextIndex = currentViewIndex < 0 ? 0 : (currentViewIndex + 1) % views.Count;
+        SetView(nextIndex);
+    }
+
+    public void PreviousView()
+    {
+        if (views.Count == 0)
+        {
+            return;
+        }
+
+        int nextIndex = currentViewIndex < 0 ? 0 : (currentViewIndex - 1 + views.Count) % views.Count;
+        SetView(nextIndex);
     }
 
     [ContextMenu("Refresh Camera Views")]
@@ -138,7 +161,7 @@ public sealed class CameraViewController : MonoBehaviour
 
         HandleKeyboardEvent(Event.current);
 
-        if (!showButtons || views.Count == 0)
+        if (!showViewSelector || views.Count == 0)
         {
             return;
         }
@@ -152,24 +175,30 @@ public sealed class CameraViewController : MonoBehaviour
         GUI.color = Color.white;
 
         Rect safeArea = Screen.safeArea;
-        float totalWidth = views.Count * buttonSize.x + Mathf.Max(0, views.Count - 1) * buttonSpacing;
+        float totalWidth = arrowButtonSize.x * 2f + labelSize.x + selectorSpacing * 2f;
         float startX = Mathf.Max(safeArea.xMin + 8f, safeArea.xMin + (safeArea.width - totalWidth) * 0.5f);
         float y = Mathf.Clamp(
-            safeArea.yMax - buttonSize.y - bottomMargin,
+            safeArea.yMax - labelSize.y - bottomMargin,
             safeArea.yMin + 8f,
-            safeArea.yMax - buttonSize.y - 8f);
+            safeArea.yMax - labelSize.y - 8f);
 
-        for (int i = 0; i < views.Count; i++)
+        Rect previousRect = new Rect(startX, y, arrowButtonSize.x, arrowButtonSize.y);
+        Rect labelRect = new Rect(previousRect.xMax + selectorSpacing, y, labelSize.x, labelSize.y);
+        Rect nextRect = new Rect(labelRect.xMax + selectorSpacing, y, arrowButtonSize.x, arrowButtonSize.y);
+
+        GUI.backgroundColor = new Color(0.9f, 0.92f, 0.95f, 1f);
+        if (GUI.Button(previousRect, "<", buttonStyle))
         {
-            Rect rect = new Rect(startX + i * (buttonSize.x + buttonSpacing), y, buttonSize.x, buttonSize.y);
-            string label = FormatViewLabel(i, views[i]);
-            bool isCurrentView = i == currentViewIndex && !isTransitioning;
-            GUI.backgroundColor = isCurrentView ? new Color(0.35f, 0.55f, 0.9f, 1f) : new Color(0.95f, 0.95f, 0.95f, 1f);
+            PreviousView();
+        }
 
-            if (GUI.Button(rect, label, isCurrentView ? activeButtonStyle : buttonStyle) && !isCurrentView)
-            {
-                SetView(i);
-            }
+        GUI.backgroundColor = new Color(0.08f, 0.1f, 0.12f, 0.88f);
+        GUI.Box(labelRect, FormatViewLabel(currentViewIndex, CurrentView), labelStyle);
+
+        GUI.backgroundColor = new Color(0.9f, 0.92f, 0.95f, 1f);
+        if (GUI.Button(nextRect, ">", buttonStyle))
+        {
+            NextView();
         }
 
         GUI.depth = previousDepth;
@@ -184,29 +213,18 @@ public sealed class CameraViewController : MonoBehaviour
             return;
         }
 
-        int viewIndex = KeyCodeToViewIndex(currentEvent.keyCode);
-        if (viewIndex < 0 || viewIndex >= views.Count)
+        if (currentEvent.keyCode == KeyCode.RightArrow || currentEvent.keyCode == KeyCode.E)
         {
+            NextView();
+            currentEvent.Use();
             return;
         }
 
-        SetView(viewIndex);
-        currentEvent.Use();
-    }
-
-    private static int KeyCodeToViewIndex(KeyCode keyCode)
-    {
-        if (keyCode >= KeyCode.Alpha1 && keyCode <= KeyCode.Alpha9)
+        if (currentEvent.keyCode == KeyCode.LeftArrow || currentEvent.keyCode == KeyCode.Q)
         {
-            return keyCode - KeyCode.Alpha1;
+            PreviousView();
+            currentEvent.Use();
         }
-
-        if (keyCode >= KeyCode.Keypad1 && keyCode <= KeyCode.Keypad9)
-        {
-            return keyCode - KeyCode.Keypad1;
-        }
-
-        return -1;
     }
 
     private static string FormatViewLabel(int index, Transform view)
@@ -218,8 +236,12 @@ public sealed class CameraViewController : MonoBehaviour
         }
 
         label = label.Replace('_', ' ');
-        return $"{index + 1}. {label}";
+        return index >= 0 ? $"View {index + 1}: {label}" : label;
     }
+
+    private Transform CurrentView => currentViewIndex >= 0 && currentViewIndex < views.Count
+        ? views[currentViewIndex]
+        : null;
 
     private void SnapToInitialViewIfNeeded()
     {
@@ -234,7 +256,7 @@ public sealed class CameraViewController : MonoBehaviour
 
     private void EnsureStyles()
     {
-        if (buttonStyle != null && activeButtonStyle != null)
+        if (buttonStyle != null && labelStyle != null)
         {
             return;
         }
@@ -251,10 +273,16 @@ public sealed class CameraViewController : MonoBehaviour
         buttonStyle.active.textColor = Color.black;
         buttonStyle.focused.textColor = Color.black;
 
-        activeButtonStyle = new GUIStyle(buttonStyle);
-        activeButtonStyle.normal.textColor = Color.white;
-        activeButtonStyle.hover.textColor = Color.white;
-        activeButtonStyle.active.textColor = Color.white;
-        activeButtonStyle.focused.textColor = Color.white;
+        labelStyle = new GUIStyle(GUI.skin.box)
+        {
+            fontSize = 13,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter,
+            clipping = TextClipping.Clip
+        };
+        labelStyle.normal.textColor = Color.white;
+        labelStyle.hover.textColor = Color.white;
+        labelStyle.active.textColor = Color.white;
+        labelStyle.focused.textColor = Color.white;
     }
 }

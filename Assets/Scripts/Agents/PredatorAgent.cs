@@ -8,6 +8,7 @@ public sealed class PredatorAgent : MonoBehaviour
     [SerializeField] private float maxAcceleration = 24f;
     [SerializeField] private float preyDetectionRadius = 38f;
     [SerializeField] private float attackRadius = 2.3f;
+    [SerializeField] private float attackReachBuffer = 1.25f;
     [SerializeField] private float eatPauseTime = 1.25f;
     [SerializeField] private float pursuitWeight = 12f;
     [SerializeField] private float pursuitLeadTime = 0.55f;
@@ -21,12 +22,19 @@ public sealed class PredatorAgent : MonoBehaviour
     [SerializeField] private float obstacleAvoidanceWeight = 12f;
     [SerializeField] private float boundsStrength = 12f;
     [SerializeField] private float turnResponsiveness = 7f;
+    [Header("Health")]
+    [SerializeField] private float maxHealth = 100f;
+    [SerializeField] private float damageCooldown = 0.35f;
+    [SerializeField] private float defeatDestroyDelay = 1.5f;
+    [SerializeField] private bool autoAddHealthBar = true;
+    [SerializeField] private float debugDamageAmount = 25f;
 
     private readonly List<int> route = new List<int>();
     private readonly List<PreyAgent> nearbyPrey = new List<PreyAgent>(32);
     private SimulationBounds bounds;
     private SimulationManager simulationManager;
     private CityNavigation navigation;
+    private AgentVisualController visualController;
     private PreyAgent targetPrey;
     private Vector3 velocity;
     private Vector3 wanderDirection;
@@ -35,9 +43,17 @@ public sealed class PredatorAgent : MonoBehaviour
     private float pauseUntilTime;
     private int routeIndex;
     private int currentNodeIndex = -1;
+    private float currentHealth;
+    private float nextDamageTime;
+    private float pendingCelebrateTime = -1f;
+    private bool isDefeated;
 
     public Vector3 Velocity => velocity;
     public bool IsEating => Time.time < pauseUntilTime;
+    public float CurrentHealth => currentHealth;
+    public float MaxHealth => maxHealth;
+    public float HealthNormalized => maxHealth > 0f ? Mathf.Clamp01(currentHealth / maxHealth) : 0f;
+    public bool IsDefeated => isDefeated;
 
     private bool HasActiveRoute => navigation != null
         && routeIndex >= 0
@@ -51,6 +67,7 @@ public sealed class PredatorAgent : MonoBehaviour
         maxAcceleration = Mathf.Max(0.1f, maxAcceleration);
         preyDetectionRadius = Mathf.Max(0.1f, preyDetectionRadius);
         attackRadius = Mathf.Max(0.1f, attackRadius);
+        attackReachBuffer = Mathf.Max(0f, attackReachBuffer);
         eatPauseTime = Mathf.Max(0f, eatPauseTime);
         pursuitWeight = Mathf.Max(0f, pursuitWeight);
         pursuitLeadTime = Mathf.Max(0f, pursuitLeadTime);
@@ -64,6 +81,10 @@ public sealed class PredatorAgent : MonoBehaviour
         obstacleAvoidanceWeight = Mathf.Max(0f, obstacleAvoidanceWeight);
         boundsStrength = Mathf.Max(0f, boundsStrength);
         turnResponsiveness = Mathf.Max(0.1f, turnResponsiveness);
+        maxHealth = Mathf.Max(1f, maxHealth);
+        damageCooldown = Mathf.Max(0f, damageCooldown);
+        defeatDestroyDelay = Mathf.Max(0f, defeatDestroyDelay);
+        debugDamageAmount = Mathf.Max(0f, debugDamageAmount);
     }
 
     public void Initialize(SimulationBounds simulationBounds, SimulationManager manager, CityNavigation cityNavigation)
@@ -85,6 +106,9 @@ public sealed class PredatorAgent : MonoBehaviour
 
     private void Awake()
     {
+        currentHealth = maxHealth;
+        visualController = GetComponent<AgentVisualController>();
+        EnsureHealthBar();
         wanderDirection = GetRandomGroundDirection();
         wanderTargetDirection = wanderDirection;
         velocity = wanderDirection * maxSpeed * Random.Range(0.25f, 0.55f);
@@ -93,6 +117,11 @@ public sealed class PredatorAgent : MonoBehaviour
 
     private void Update()
     {
+        if (isDefeated)
+        {
+            return;
+        }
+
         float deltaTime = Time.deltaTime;
 
         if (!IsEating)
@@ -100,6 +129,10 @@ public sealed class PredatorAgent : MonoBehaviour
             UpdateRouteState();
             AcquireTarget();
             TryEatNearbyPrey();
+        }
+        else
+        {
+            TryTriggerPendingCelebrate();
         }
 
         Vector3 acceleration = IsEating ? -velocity : CalculateSteering();
@@ -125,6 +158,65 @@ public sealed class PredatorAgent : MonoBehaviour
         {
             simulationManager.UnregisterPredator(this);
         }
+    }
+
+    public bool TakeDamage(float amount)
+    {
+        if (isDefeated || amount <= 0f || Time.time < nextDamageTime)
+        {
+            return false;
+        }
+
+        nextDamageTime = Time.time + damageCooldown;
+        currentHealth = Mathf.Max(0f, currentHealth - amount);
+
+        if (currentHealth <= 0f)
+        {
+            Defeat();
+        }
+        else if (visualController != null)
+        {
+            visualController.TriggerHit();
+        }
+
+        return true;
+    }
+
+    [ContextMenu("Debug Damage Titan")]
+    private void DebugDamageTitan()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.Log("Debug titan damage is only available in Play Mode.", this);
+            return;
+        }
+
+        TakeDamage(debugDamageAmount);
+    }
+
+    private void Defeat()
+    {
+        if (isDefeated)
+        {
+            return;
+        }
+
+        isDefeated = true;
+        targetPrey = null;
+        velocity = Vector3.zero;
+        pendingCelebrateTime = -1f;
+
+        if (visualController != null)
+        {
+            visualController.TriggerDefeat();
+        }
+
+        if (simulationManager != null)
+        {
+            simulationManager.RecordTitanDefeated(this);
+        }
+
+        Destroy(gameObject, defeatDestroyDelay);
     }
 
     private Vector3 CalculateSteering()
@@ -213,8 +305,9 @@ public sealed class PredatorAgent : MonoBehaviour
             return;
         }
 
-        simulationManager.GetNearbyPrey(transform.position, attackRadius, nearbyPrey);
-        float attackRadiusSqr = attackRadius * attackRadius;
+        float effectiveAttackRadius = attackRadius + attackReachBuffer;
+        simulationManager.GetNearbyPrey(transform.position, effectiveAttackRadius, nearbyPrey);
+        float attackRadiusSqr = effectiveAttackRadius * effectiveAttackRadius;
 
         for (int i = 0; i < nearbyPrey.Count; i++)
         {
@@ -229,12 +322,42 @@ public sealed class PredatorAgent : MonoBehaviour
                 continue;
             }
 
-            prey.Die();
+            prey.Die(this);
             targetPrey = null;
             pauseUntilTime = Time.time + eatPauseTime;
+            pendingCelebrateTime = Time.time + Mathf.Min(0.45f, eatPauseTime * 0.5f);
             velocity *= 0.2f;
+            if (visualController != null)
+            {
+                visualController.TriggerAttack();
+            }
+
             return;
         }
+    }
+
+    private void TryTriggerPendingCelebrate()
+    {
+        if (pendingCelebrateTime < 0f || Time.time < pendingCelebrateTime)
+        {
+            return;
+        }
+
+        pendingCelebrateTime = -1f;
+        if (visualController != null)
+        {
+            visualController.TriggerCelebrate();
+        }
+    }
+
+    private void EnsureHealthBar()
+    {
+        if (!autoAddHealthBar || GetComponent<PredatorHealthBar>() != null)
+        {
+            return;
+        }
+
+        gameObject.AddComponent<PredatorHealthBar>();
     }
 
     private void UpdateRouteState()
@@ -382,5 +505,11 @@ public sealed class PredatorAgent : MonoBehaviour
 
         Gizmos.color = new Color(1f, 0.85f, 0.1f, 0.55f);
         Gizmos.DrawWireSphere(transform.position, attackRadius);
+
+        if (attackReachBuffer > 0f)
+        {
+            Gizmos.color = new Color(1f, 0.45f, 0.1f, 0.35f);
+            Gizmos.DrawWireSphere(transform.position, attackRadius + attackReachBuffer);
+        }
     }
 }

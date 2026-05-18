@@ -10,9 +10,9 @@ public sealed class PredatorSpawner : MonoBehaviour
     [SerializeField] private bool spawnOnStart = true;
     [SerializeField] private bool showSpawnButton = true;
     [SerializeField] private float initialDelay = 4f;
-    [SerializeField] private float spawnInterval = 14f;
-    [SerializeField] private float manualSpawnCooldown = 3f;
-    [SerializeField] private int maxActivePredators = 10;
+    [SerializeField] private float spawnInterval = 1f;
+    [SerializeField] private float manualSpawnCooldown = 1f;
+    [SerializeField] private int maxActivePredators = 20;
     [SerializeField] private float fallbackWestInset = 8f;
     [SerializeField] private float fallbackZSpread = 18f;
     [SerializeField] private Vector2 buttonPosition = new Vector2(18f, 18f);
