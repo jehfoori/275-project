@@ -195,13 +195,11 @@ MonoBehaviour:
   initialStress: 0
   stressGainNearPredator: 0.75
   stressGainWhenFleeing: 0.28
-  stressGainFromPanicNeighbors: 0.04
+  stressGainFromPanicNeighbors: 0.18
   stressRecoveryRate: 0.08
   stressRecoveryDelay: 2.5
   highStressThreshold: 0.65
   stressEvacuationThreshold: 0.75
-  stressCalmDownThreshold: 0.3
-  committedEvacuationStressThreshold: 0.95
   fatigueGainMoving: 0.035
   fatigueGainSprinting: 0.09
   fatigueRecoveryRate: 0.06

@@ -67,8 +67,6 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float stressRecoveryDelay = 2.5f;
     [SerializeField] private float highStressThreshold = 0.65f;
     [SerializeField] private float stressEvacuationThreshold = 0.75f;
-    [SerializeField] private float stressCalmDownThreshold = 0.3f;
-    [SerializeField] private float committedEvacuationStressThreshold = 0.95f;
     [SerializeField] private float fatigueGainMoving = 0.035f;
     [SerializeField] private float fatigueGainSprinting = 0.09f;
     [SerializeField] private float fatigueRecoveryRate = 0.06f;
@@ -129,7 +127,6 @@ public sealed class PreyAgent : MonoBehaviour
     private int evacuationTargetNodeIndex = -1;
     private HumanState humanState = HumanState.Calm;
     private SoldierState soldierState = SoldierState.Patrol;
-    private bool isCommittedToEvacuation;
     private bool isDead;
 
     public HumanRole Role => role;
@@ -200,11 +197,6 @@ public sealed class PreyAgent : MonoBehaviour
         stressRecoveryDelay = Mathf.Max(0f, stressRecoveryDelay);
         highStressThreshold = Mathf.Clamp01(highStressThreshold);
         stressEvacuationThreshold = Mathf.Clamp01(stressEvacuationThreshold);
-        stressCalmDownThreshold = Mathf.Clamp(stressCalmDownThreshold, 0f, stressEvacuationThreshold);
-        committedEvacuationStressThreshold = Mathf.Clamp(
-            committedEvacuationStressThreshold,
-            stressEvacuationThreshold,
-            1f);
         fatigueGainMoving = Mathf.Max(0f, fatigueGainMoving);
         fatigueGainSprinting = Mathf.Max(0f, fatigueGainSprinting);
         fatigueRecoveryRate = Mathf.Max(0f, fatigueRecoveryRate);
@@ -847,7 +839,7 @@ public sealed class PreyAgent : MonoBehaviour
         }
 
         float evacuatingRatio = evacuatingNeighborCount / (float)civilianNeighborCount;
-        AddStress(stressGainFromPanicNeighbors * evacuatingRatio * panicContagionCheckInterval);
+        AddStress(stressGainFromPanicNeighbors * evacuatingRatio);
     }
 
     private void AddFlockingSteering(ref Vector3 desiredDirection, bool includeGroupPull)
@@ -944,7 +936,6 @@ public sealed class PreyAgent : MonoBehaviour
         }
 
         UpdateCivilianStressEvacuation(isThreatened);
-
     }
 
     private void UpdateCivilianStressEvacuation(bool isThreatened)
@@ -957,19 +948,6 @@ public sealed class PreyAgent : MonoBehaviour
         if (humanState == HumanState.Calm && stress >= stressEvacuationThreshold)
         {
             BeginEvacuation();
-        }
-
-        if (humanState == HumanState.Evacuating && stress >= committedEvacuationStressThreshold)
-        {
-            isCommittedToEvacuation = true;
-        }
-
-        if (humanState == HumanState.Evacuating
-            && !isCommittedToEvacuation
-            && !isThreatened
-            && stress <= stressCalmDownThreshold)
-        {
-            ReturnToCalm();
         }
     }
 
@@ -1225,19 +1203,4 @@ public sealed class PreyAgent : MonoBehaviour
         Gizmos.DrawWireSphere(transform.position, Mathf.Lerp(0.8f, 2.4f, stress));
     }
 
-    private void ReturnToCalm()
-    {
-        if (role != HumanRole.Civilian || humanState != HumanState.Evacuating)
-        {
-            return;
-        }
-
-        humanState = HumanState.Calm;
-        isCommittedToEvacuation = false;
-        evacuationTargetNodeIndex = -1;
-        route.Clear();
-        routeIndex = 0;
-        currentNodeIndex = navigation != null ? navigation.GetNearestNodeIndex(transform.position) : -1;
-        ChooseNewRoute();
-    }
 }

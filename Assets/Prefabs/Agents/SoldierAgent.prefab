@@ -200,8 +200,6 @@ MonoBehaviour:
   stressRecoveryDelay: 1.5
   highStressThreshold: 0.75
   stressEvacuationThreshold: 0.75
-  stressCalmDownThreshold: 0.3
-  committedEvacuationStressThreshold: 0.95
   fatigueGainMoving: 0.035
   fatigueGainSprinting: 0.045
   fatigueRecoveryRate: 0.06
