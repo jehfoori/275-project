@@ -39,7 +39,10 @@ public sealed class SimulationManager : MonoBehaviour
     private int predatorSpatialIndexFrame = -1;
     private int totalHumanCount;
     private int totalCivilianCount;
+    private int totalSoldierCount;
     private int humanCasualtyCount;
+    private int civilianCasualtyCount;
+    private int soldierCasualtyCount;
     private int humanEscapedCount;
     private int titanDefeatedCount;
     private float simulationStartTime;
@@ -55,8 +58,12 @@ public sealed class SimulationManager : MonoBehaviour
     public int TotalHumanCount => totalHumanCount;
     public int ActiveCivilianCount => CountActiveCivilians();
     public int HumanCasualtyCount => humanCasualtyCount;
+    public int CivilianCasualtyCount => civilianCasualtyCount;
+    public int SoldierCasualtyCount => soldierCasualtyCount;
     public int HumanEscapedCount => humanEscapedCount;
     public int TitanDefeatedCount => titanDefeatedCount;
+    public float AverageCivilianStress => GetAverageStress(PreyAgent.HumanRole.Civilian);
+    public float AverageSoldierStress => GetAverageStress(PreyAgent.HumanRole.Soldier);
     public float ElapsedTime => Mathf.Max(0f, Time.time - simulationStartTime);
     public bool ShouldSoldiersWithdraw
     {
@@ -154,6 +161,10 @@ public sealed class SimulationManager : MonoBehaviour
             {
                 totalCivilianCount++;
             }
+            else if (prey.Role == PreyAgent.HumanRole.Soldier)
+            {
+                totalSoldierCount++;
+            }
 
             preySpatialIndexFrame = -1;
         }
@@ -188,6 +199,15 @@ public sealed class SimulationManager : MonoBehaviour
         }
 
         humanCasualtyCount++;
+        if (prey.Role == PreyAgent.HumanRole.Civilian)
+        {
+            civilianCasualtyCount++;
+        }
+        else if (prey.Role == PreyAgent.HumanRole.Soldier)
+        {
+            soldierCasualtyCount++;
+        }
+
         UnregisterPrey(prey);
     }
 
@@ -337,6 +357,26 @@ public sealed class SimulationManager : MonoBehaviour
         }
 
         return count;
+    }
+
+    private float GetAverageStress(PreyAgent.HumanRole role)
+    {
+        float totalStress = 0f;
+        int count = 0;
+
+        for (int i = 0; i < preyAgents.Count; i++)
+        {
+            PreyAgent prey = preyAgents[i];
+            if (prey == null || prey.Role != role)
+            {
+                continue;
+            }
+
+            totalStress += prey.Stress;
+            count++;
+        }
+
+        return count > 0 ? totalStress / count : 0f;
     }
 
     private Vector3 GetSpawnPosition()
@@ -615,7 +655,7 @@ public sealed class SimulationManager : MonoBehaviour
 
         const float lineHeight = 21f;
         const float padding = 12f;
-        float height = padding * 2f + 5f * lineHeight;
+        float height = padding * 2f + 8f * lineHeight;
         Rect safeArea = Screen.safeArea;
         Rect hudRect = new Rect(
             safeArea.xMax - statsHudWidth - statsHudOffset.x,
@@ -632,7 +672,10 @@ public sealed class SimulationManager : MonoBehaviour
         GUI.Label(lineRect, "Simulation", hudTitleStyle);
 
         lineRect.y += lineHeight;
-        GUI.Label(lineRect, $"Human Casualties: {humanCasualtyCount} / {totalHumanCount}", hudLabelStyle);
+        GUI.Label(lineRect, $"Civilian Casualties: {civilianCasualtyCount} / {totalCivilianCount}", hudLabelStyle);
+
+        lineRect.y += lineHeight;
+        GUI.Label(lineRect, $"Soldier Casualties: {soldierCasualtyCount} / {totalSoldierCount}", hudLabelStyle);
 
         lineRect.y += lineHeight;
         GUI.Label(lineRect, $"Humans Escaped: {humanEscapedCount} / {totalHumanCount}", hudLabelStyle);
@@ -642,6 +685,12 @@ public sealed class SimulationManager : MonoBehaviour
 
         lineRect.y += lineHeight;
         GUI.Label(lineRect, $"Elapsed Time: {FormatElapsedTime(ElapsedTime)}", hudLabelStyle);
+
+        lineRect.y += lineHeight;
+        GUI.Label(lineRect, $"Avg Civilian Stress: {AverageCivilianStress:P0}", hudLabelStyle);
+
+        lineRect.y += lineHeight;
+        GUI.Label(lineRect, $"Avg Soldier Stress: {AverageSoldierStress:P0}", hudLabelStyle);
     }
 
     private void EnsureHudStyles()

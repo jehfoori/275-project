@@ -58,6 +58,33 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float panicContagionCheckInterval = 0.35f;
     [SerializeField] private int panicContagionMinNeighbors = 2;
     [SerializeField] private float panicContagionRatio = 0.35f;
+    [Header("Needs And Stress")]
+    [SerializeField] private float initialStress = 0f;
+    [SerializeField] private float stressGainNearPredator = 0.75f;
+    [SerializeField] private float stressGainWhenFleeing = 0.28f;
+    [SerializeField] private float stressGainFromPanicNeighbors = 0.18f;
+    [SerializeField] private float stressRecoveryRate = 0.08f;
+    [SerializeField] private float stressRecoveryDelay = 2.5f;
+    [SerializeField] private float highStressThreshold = 0.65f;
+    [SerializeField] private float stressEvacuationThreshold = 0.75f;
+    [SerializeField] private float stressCalmDownThreshold = 0.3f;
+    [SerializeField] private float committedEvacuationStressThreshold = 0.95f;
+    [SerializeField] private float fatigueGainMoving = 0.035f;
+    [SerializeField] private float fatigueGainSprinting = 0.09f;
+    [SerializeField] private float fatigueRecoveryRate = 0.06f;
+    [SerializeField] private float fatigueSpeedPenalty = 0.32f;
+    [SerializeField] private float fatigueAccelerationPenalty = 0.25f;
+    [SerializeField] private float initialInjury = 0f;
+    [SerializeField] private float injurySpeedPenalty = 0.45f;
+    [SerializeField] private float injuryStressGainMultiplier = 0.5f;
+    [SerializeField] private float stressFleeWeightMultiplier = 0.45f;
+    [SerializeField] private float stressSeparationMultiplier = 0.35f;
+    [SerializeField] private float stressCohesionPenalty = 0.5f;
+    [SerializeField] private float stressWanderMultiplier = 0.6f;
+    [SerializeField] private float stressEvacuationPathMultiplier = 0.35f;
+    [SerializeField] private float soldierStressAttackPenalty = 0.35f;
+    [SerializeField] private float soldierStressWithdrawThreshold = 0.92f;
+    [SerializeField] private float soldierStressRecoveryBonus = 0.05f;
     [Header("Soldier")]
     [SerializeField] private float soldierThreatRadius = 26f;
     [SerializeField] private float soldierAttackRadius = 4f;
@@ -89,8 +116,12 @@ public sealed class PreyAgent : MonoBehaviour
     private float nextWanderTargetTime;
     private float pauseUntilTime;
     private float lastThreatTime = -999f;
+    private float lastStressEventTime = -999f;
     private float nextSoldierAttackTime;
     private float nextPanicContagionCheckTime;
+    private float stress;
+    private float fatigue;
+    private float injury;
     private Vector3 lastThreatPosition;
     private PredatorAgent soldierTarget;
     private int routeIndex;
@@ -98,11 +129,16 @@ public sealed class PreyAgent : MonoBehaviour
     private int evacuationTargetNodeIndex = -1;
     private HumanState humanState = HumanState.Calm;
     private SoldierState soldierState = SoldierState.Patrol;
+    private bool isCommittedToEvacuation;
     private bool isDead;
 
     public HumanRole Role => role;
     public Vector3 Velocity => velocity;
     public bool IsEvacuating => humanState == HumanState.Evacuating;
+    public float Stress => stress;
+    public float Fatigue => fatigue;
+    public float Injury => injury;
+    public bool IsHighlyStressed => stress >= highStressThreshold;
     public IReadOnlyList<int> DebugRoute => route;
     public int DebugRouteIndex => routeIndex;
     public bool IsPaused => Time.time < pauseUntilTime;
@@ -156,6 +192,35 @@ public sealed class PreyAgent : MonoBehaviour
         panicContagionCheckInterval = Mathf.Max(0.05f, panicContagionCheckInterval);
         panicContagionMinNeighbors = Mathf.Max(1, panicContagionMinNeighbors);
         panicContagionRatio = Mathf.Clamp01(panicContagionRatio);
+        initialStress = Mathf.Clamp01(initialStress);
+        stressGainNearPredator = Mathf.Max(0f, stressGainNearPredator);
+        stressGainWhenFleeing = Mathf.Max(0f, stressGainWhenFleeing);
+        stressGainFromPanicNeighbors = Mathf.Max(0f, stressGainFromPanicNeighbors);
+        stressRecoveryRate = Mathf.Max(0f, stressRecoveryRate);
+        stressRecoveryDelay = Mathf.Max(0f, stressRecoveryDelay);
+        highStressThreshold = Mathf.Clamp01(highStressThreshold);
+        stressEvacuationThreshold = Mathf.Clamp01(stressEvacuationThreshold);
+        stressCalmDownThreshold = Mathf.Clamp(stressCalmDownThreshold, 0f, stressEvacuationThreshold);
+        committedEvacuationStressThreshold = Mathf.Clamp(
+            committedEvacuationStressThreshold,
+            stressEvacuationThreshold,
+            1f);
+        fatigueGainMoving = Mathf.Max(0f, fatigueGainMoving);
+        fatigueGainSprinting = Mathf.Max(0f, fatigueGainSprinting);
+        fatigueRecoveryRate = Mathf.Max(0f, fatigueRecoveryRate);
+        fatigueSpeedPenalty = Mathf.Clamp01(fatigueSpeedPenalty);
+        fatigueAccelerationPenalty = Mathf.Clamp01(fatigueAccelerationPenalty);
+        initialInjury = Mathf.Clamp01(initialInjury);
+        injurySpeedPenalty = Mathf.Clamp01(injurySpeedPenalty);
+        injuryStressGainMultiplier = Mathf.Max(0f, injuryStressGainMultiplier);
+        stressFleeWeightMultiplier = Mathf.Max(0f, stressFleeWeightMultiplier);
+        stressSeparationMultiplier = Mathf.Max(0f, stressSeparationMultiplier);
+        stressCohesionPenalty = Mathf.Clamp01(stressCohesionPenalty);
+        stressWanderMultiplier = Mathf.Clamp01(stressWanderMultiplier);
+        stressEvacuationPathMultiplier = Mathf.Max(0f, stressEvacuationPathMultiplier);
+        soldierStressAttackPenalty = Mathf.Clamp01(soldierStressAttackPenalty);
+        soldierStressWithdrawThreshold = Mathf.Clamp01(soldierStressWithdrawThreshold);
+        soldierStressRecoveryBonus = Mathf.Max(0f, soldierStressRecoveryBonus);
         soldierThreatRadius = Mathf.Max(0.1f, soldierThreatRadius);
         soldierAttackRadius = Mathf.Clamp(soldierAttackRadius, 0.1f, soldierThreatRadius);
         soldierAttackDamage = Mathf.Max(0f, soldierAttackDamage);
@@ -199,6 +264,8 @@ public sealed class PreyAgent : MonoBehaviour
     private void Awake()
     {
         visualController = GetComponent<AgentVisualController>();
+        stress = Mathf.Clamp01(initialStress);
+        injury = Mathf.Clamp01(initialInjury);
         wanderDirection = GetRandomGroundDirection();
         wanderTargetDirection = wanderDirection;
         velocity = wanderDirection * maxSpeed * Random.Range(0.35f, 0.75f);
@@ -218,9 +285,10 @@ public sealed class PreyAgent : MonoBehaviour
         TryPanicContagion();
 
         Vector3 acceleration = CalculateSteering();
-        velocity += acceleration * deltaTime;
         bool isThreatened = IsThreatened;
-        float targetMaxSpeed = isThreatened ? maxSpeed * panicSpeedMultiplier : maxSpeed;
+        UpdateNeeds(deltaTime, isThreatened);
+        velocity += acceleration * deltaTime;
+        float targetMaxSpeed = GetEffectiveSpeed(isThreatened ? maxSpeed * panicSpeedMultiplier : maxSpeed);
         velocity = Vector3.ClampMagnitude(FlattenVector(velocity), IsPaused && !isThreatened ? maxSpeed * 0.35f : targetMaxSpeed);
 
         transform.position += velocity * deltaTime;
@@ -330,6 +398,7 @@ public sealed class PreyAgent : MonoBehaviour
         float activeWanderStrength = humanState == HumanState.Evacuating
             ? wanderStrength * evacuationWanderMultiplier
             : wanderStrength;
+        activeWanderStrength *= 1f - stress * stressWanderMultiplier;
         Vector3 desiredDirection = wanderDirection * activeWanderStrength;
 
         soldierTarget = role == HumanRole.Soldier && soldierState != SoldierState.Withdraw
@@ -349,6 +418,7 @@ public sealed class PreyAgent : MonoBehaviour
         }
         else if (role == HumanRole.Soldier && soldierTarget != null)
         {
+            AddStressFromVisiblePredator(soldierTarget);
             int nearbySoldierCount = CountNearbyCombatSoldiers(soldierTarget);
             soldierState = nearbySoldierCount >= minSoldiersToEngage ? SoldierState.Engage : SoldierState.Rally;
             isEngagingPredator = true;
@@ -385,7 +455,7 @@ public sealed class PreyAgent : MonoBehaviour
             Vector3 toTarget = FlattenVector(navigation.Nodes[evacuationTargetNodeIndex].Position - transform.position);
             if (toTarget.sqrMagnitude > 0.001f)
             {
-                desiredDirection += toTarget.normalized * pathFollowWeight * evacuationPathWeightMultiplier;
+                desiredDirection += toTarget.normalized * pathFollowWeight * GetEffectiveEvacuationPathMultiplier();
             }
         }
         else if (!isEngagingPredator && !IsPaused && HasActiveRoute)
@@ -411,8 +481,8 @@ public sealed class PreyAgent : MonoBehaviour
 
         desiredDirection = FlattenVector(desiredDirection);
         bool shouldSlowForPause = IsPaused && humanState != HumanState.Evacuating;
-        float targetSpeed = isThreatened ? maxSpeed * panicSpeedMultiplier : shouldSlowForPause ? maxSpeed * 0.15f : maxSpeed;
-        float targetAcceleration = isThreatened ? maxAcceleration * panicAccelerationMultiplier : maxAcceleration;
+        float targetSpeed = GetEffectiveSpeed(isThreatened ? maxSpeed * panicSpeedMultiplier : shouldSlowForPause ? maxSpeed * 0.15f : maxSpeed);
+        float targetAcceleration = GetEffectiveAcceleration(isThreatened ? maxAcceleration * panicAccelerationMultiplier : maxAcceleration);
         Vector3 desiredVelocity = desiredDirection.sqrMagnitude > 0.001f
             ? desiredDirection.normalized * targetSpeed
             : Vector3.zero;
@@ -632,7 +702,8 @@ public sealed class PreyAgent : MonoBehaviour
             return;
         }
 
-        bool damageApplied = soldierTarget.TakeDamage(soldierAttackDamage);
+        float effectiveDamage = soldierAttackDamage * (1f - stress * soldierStressAttackPenalty);
+        bool damageApplied = soldierTarget.TakeDamage(effectiveDamage);
         if (damageApplied && visualController != null)
         {
             visualController.TriggerAttack();
@@ -683,7 +754,7 @@ public sealed class PreyAgent : MonoBehaviour
         if (sawThreat)
         {
             lastThreatTime = Time.time;
-            BeginEvacuation();
+            AddStressFromPredatorDistance(Mathf.Sqrt(nearestDistanceSqr), predatorPerceptionRadius);
         }
         else if (IsThreatened)
         {
@@ -699,7 +770,7 @@ public sealed class PreyAgent : MonoBehaviour
             return IsThreatened;
         }
 
-        desiredDirection += fleeDirection.normalized * predatorFleeWeight;
+        desiredDirection += fleeDirection.normalized * predatorFleeWeight * (1f + stress * stressFleeWeightMultiplier);
         return true;
     }
 
@@ -776,10 +847,7 @@ public sealed class PreyAgent : MonoBehaviour
         }
 
         float evacuatingRatio = evacuatingNeighborCount / (float)civilianNeighborCount;
-        if (evacuatingRatio >= panicContagionRatio)
-        {
-            BeginEvacuation();
-        }
+        AddStress(stressGainFromPanicNeighbors * evacuatingRatio * panicContagionCheckInterval);
     }
 
     private void AddFlockingSteering(ref Vector3 desiredDirection, bool includeGroupPull)
@@ -836,13 +904,121 @@ public sealed class PreyAgent : MonoBehaviour
         if (includeGroupPull)
         {
             desiredDirection += alignment * alignmentWeight;
-            desiredDirection += cohesion * cohesionWeight;
+            desiredDirection += cohesion * cohesionWeight * (1f - stress * stressCohesionPenalty);
         }
 
         if (separationCount > 0)
         {
-            desiredDirection += (separation / separationCount).normalized * separationWeight;
+            desiredDirection += (separation / separationCount).normalized * separationWeight * (1f + stress * stressSeparationMultiplier);
         }
+    }
+
+    private void UpdateNeeds(float deltaTime, bool isThreatened)
+    {
+        bool isMoving = velocity.magnitude > maxSpeed * 0.35f;
+        bool isSprinting = isThreatened || humanState == HumanState.Evacuating || soldierState == SoldierState.Withdraw || soldierTarget != null;
+
+        if (isThreatened || soldierState == SoldierState.Withdraw)
+        {
+            AddStress(stressGainWhenFleeing * deltaTime);
+        }
+        else if (Time.time - lastStressEventTime >= stressRecoveryDelay)
+        {
+            float activeRecovery = stressRecoveryRate;
+            if (role == HumanRole.Soldier)
+            {
+                activeRecovery += soldierStressRecoveryBonus;
+            }
+
+            stress = Mathf.Clamp01(stress - activeRecovery * deltaTime);
+        }
+
+        if (isMoving)
+        {
+            float gain = isSprinting ? fatigueGainSprinting : fatigueGainMoving;
+            fatigue = Mathf.Clamp01(fatigue + gain * deltaTime);
+        }
+        else
+        {
+            fatigue = Mathf.Clamp01(fatigue - fatigueRecoveryRate * deltaTime);
+        }
+
+        UpdateCivilianStressEvacuation(isThreatened);
+
+    }
+
+    private void UpdateCivilianStressEvacuation(bool isThreatened)
+    {
+        if (role != HumanRole.Civilian)
+        {
+            return;
+        }
+
+        if (humanState == HumanState.Calm && stress >= stressEvacuationThreshold)
+        {
+            BeginEvacuation();
+        }
+
+        if (humanState == HumanState.Evacuating && stress >= committedEvacuationStressThreshold)
+        {
+            isCommittedToEvacuation = true;
+        }
+
+        if (humanState == HumanState.Evacuating
+            && !isCommittedToEvacuation
+            && !isThreatened
+            && stress <= stressCalmDownThreshold)
+        {
+            ReturnToCalm();
+        }
+    }
+
+    private void AddStress(float amount)
+    {
+        if (amount <= 0f)
+        {
+            return;
+        }
+
+        float injuryMultiplier = 1f + injury * injuryStressGainMultiplier;
+        stress = Mathf.Clamp01(stress + amount * injuryMultiplier);
+        lastStressEventTime = Time.time;
+    }
+
+    private void AddStressFromVisiblePredator(PredatorAgent predator)
+    {
+        if (predator == null)
+        {
+            return;
+        }
+
+        float distance = FlattenVector(predator.transform.position - transform.position).magnitude;
+        AddStressFromPredatorDistance(distance, soldierThreatRadius);
+    }
+
+    private void AddStressFromPredatorDistance(float distance, float radius)
+    {
+        float proximity = 1f - Mathf.Clamp01(distance / Mathf.Max(0.1f, radius));
+        AddStress(stressGainNearPredator * proximity * Time.deltaTime);
+    }
+
+    private float GetEffectiveSpeed(float baseSpeed)
+    {
+        float fatiguePenalty = fatigue * fatigueSpeedPenalty;
+        float injuryPenalty = injury * injurySpeedPenalty;
+        return Mathf.Max(0.1f, baseSpeed * (1f - fatiguePenalty) * (1f - injuryPenalty));
+    }
+
+    private float GetEffectiveAcceleration(float baseAcceleration)
+    {
+        float fatiguePenalty = fatigue * fatigueAccelerationPenalty;
+        float injuryPenalty = injury * injurySpeedPenalty;
+        return Mathf.Max(0.1f, baseAcceleration * (1f - fatiguePenalty) * (1f - injuryPenalty));
+    }
+
+    private float GetEffectiveEvacuationPathMultiplier()
+    {
+        return evacuationPathWeightMultiplier * (1f + stress * stressEvacuationPathMultiplier);
     }
 
     private void AddObstacleSteering(ref Vector3 desiredDirection)
@@ -1044,5 +1220,24 @@ public sealed class PreyAgent : MonoBehaviour
         Gizmos.color = IsPaused ? new Color(1f, 0.85f, 0.25f, 0.85f) : new Color(0.35f, 1f, 0.45f, 0.85f);
         Gizmos.DrawLine(transform.position, DebugTargetPosition);
         Gizmos.DrawWireSphere(DebugTargetPosition, waypointArrivalRadius);
+
+        Gizmos.color = Color.Lerp(new Color(0.2f, 0.9f, 0.55f, 0.35f), new Color(1f, 0.1f, 0.05f, 0.45f), stress);
+        Gizmos.DrawWireSphere(transform.position, Mathf.Lerp(0.8f, 2.4f, stress));
+    }
+
+    private void ReturnToCalm()
+    {
+        if (role != HumanRole.Civilian || humanState != HumanState.Evacuating)
+        {
+            return;
+        }
+
+        humanState = HumanState.Calm;
+        isCommittedToEvacuation = false;
+        evacuationTargetNodeIndex = -1;
+        route.Clear();
+        routeIndex = 0;
+        currentNodeIndex = navigation != null ? navigation.GetNearestNodeIndex(transform.position) : -1;
+        ChooseNewRoute();
     }
 }

@@ -185,11 +185,55 @@ MonoBehaviour:
   panicSpeedMultiplier: 1.45
   panicAccelerationMultiplier: 1.35
   threatMemoryTime: 0.8
+  evacuationArrivalRadius: 4
+  evacuationPathWeightMultiplier: 1.2
+  evacuationWanderMultiplier: 0.2
+  panicContagionRadius: 14
+  panicContagionCheckInterval: 0.35
+  panicContagionMinNeighbors: 2
+  panicContagionRatio: 0.35
+  initialStress: 0
+  stressGainNearPredator: 0.16
+  stressGainWhenFleeing: 0.12
+  stressGainFromPanicNeighbors: 0.04
+  stressRecoveryRate: 0.12
+  stressRecoveryDelay: 1.5
+  highStressThreshold: 0.75
+  stressEvacuationThreshold: 0.75
+  stressCalmDownThreshold: 0.3
+  committedEvacuationStressThreshold: 0.95
+  fatigueGainMoving: 0.035
+  fatigueGainSprinting: 0.045
+  fatigueRecoveryRate: 0.06
+  fatigueSpeedPenalty: 0.12
+  fatigueAccelerationPenalty: 0.12
+  initialInjury: 0
+  injurySpeedPenalty: 0.45
+  injuryStressGainMultiplier: 0.5
+  stressFleeWeightMultiplier: 0.45
+  stressSeparationMultiplier: 0.35
+  stressCohesionPenalty: 0.5
+  stressWanderMultiplier: 0.6
+  stressEvacuationPathMultiplier: 0.35
+  soldierStressAttackPenalty: 0.08
+  soldierStressWithdrawThreshold: 0.99
+  soldierStressRecoveryBonus: 0.12
   soldierThreatRadius: 26
   soldierAttackRadius: 4
   soldierAttackDamage: 18
   soldierAttackCooldown: 1.15
+  soldierDefensiveAttackRadiusMultiplier: 1.15
   soldierApproachWeight: 18
+  soldierAlertEvacueeRadius: 18
+  soldierAlertEvacueeMinNeighbors: 2
+  soldierAlertEvacueeRatio: 0.25
+  minSoldiersToEngage: 3
+  soldierSupportRadius: 24
+  soldierRallyMinDistance: 12
+  soldierRallyMaxDistance: 28
+  soldierRallyApproachWeight: 12
+  soldierRallyRetreatWeight: 16
+  soldierRallyStrafeWeight: 3
 --- !u!114 &5712138566936872048
 MonoBehaviour:
   m_ObjectHideFlags: 0
