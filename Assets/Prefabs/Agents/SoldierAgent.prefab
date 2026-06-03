@@ -196,13 +196,10 @@ MonoBehaviour:
   stressGainNearPredator: 0.16
   stressGainWhenFleeing: 0.12
   stressGainFromPanicNeighbors: 0.04
-  stressRecoveryRate: 0.12
-  stressRecoveryDelay: 1.5
   highStressThreshold: 0.75
   stressEvacuationThreshold: 0.75
   fatigueGainMoving: 0.035
   fatigueGainSprinting: 0.045
-  fatigueRecoveryRate: 0.06
   fatigueSpeedPenalty: 0.12
   fatigueAccelerationPenalty: 0.12
   initialInjury: 0
@@ -215,7 +212,6 @@ MonoBehaviour:
   stressEvacuationPathMultiplier: 0.35
   soldierStressAttackPenalty: 0.08
   soldierStressWithdrawThreshold: 0.99
-  soldierStressRecoveryBonus: 0.12
   soldierThreatRadius: 26
   soldierAttackRadius: 4
   soldierAttackDamage: 18

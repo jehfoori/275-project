@@ -63,13 +63,10 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float stressGainNearPredator = 0.75f;
     [SerializeField] private float stressGainWhenFleeing = 0.28f;
     [SerializeField] private float stressGainFromPanicNeighbors = 0.18f;
-    [SerializeField] private float stressRecoveryRate = 0.08f;
-    [SerializeField] private float stressRecoveryDelay = 2.5f;
     [SerializeField] private float highStressThreshold = 0.65f;
     [SerializeField] private float stressEvacuationThreshold = 0.75f;
     [SerializeField] private float fatigueGainMoving = 0.035f;
     [SerializeField] private float fatigueGainSprinting = 0.09f;
-    [SerializeField] private float fatigueRecoveryRate = 0.06f;
     [SerializeField] private float fatigueSpeedPenalty = 0.32f;
     [SerializeField] private float fatigueAccelerationPenalty = 0.25f;
     [SerializeField] private float initialInjury = 0f;
@@ -82,7 +79,6 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float stressEvacuationPathMultiplier = 0.35f;
     [SerializeField] private float soldierStressAttackPenalty = 0.35f;
     [SerializeField] private float soldierStressWithdrawThreshold = 0.92f;
-    [SerializeField] private float soldierStressRecoveryBonus = 0.05f;
     [Header("Soldier")]
     [SerializeField] private float soldierThreatRadius = 26f;
     [SerializeField] private float soldierAttackRadius = 4f;
@@ -193,13 +189,10 @@ public sealed class PreyAgent : MonoBehaviour
         stressGainNearPredator = Mathf.Max(0f, stressGainNearPredator);
         stressGainWhenFleeing = Mathf.Max(0f, stressGainWhenFleeing);
         stressGainFromPanicNeighbors = Mathf.Max(0f, stressGainFromPanicNeighbors);
-        stressRecoveryRate = Mathf.Max(0f, stressRecoveryRate);
-        stressRecoveryDelay = Mathf.Max(0f, stressRecoveryDelay);
         highStressThreshold = Mathf.Clamp01(highStressThreshold);
         stressEvacuationThreshold = Mathf.Clamp01(stressEvacuationThreshold);
         fatigueGainMoving = Mathf.Max(0f, fatigueGainMoving);
         fatigueGainSprinting = Mathf.Max(0f, fatigueGainSprinting);
-        fatigueRecoveryRate = Mathf.Max(0f, fatigueRecoveryRate);
         fatigueSpeedPenalty = Mathf.Clamp01(fatigueSpeedPenalty);
         fatigueAccelerationPenalty = Mathf.Clamp01(fatigueAccelerationPenalty);
         initialInjury = Mathf.Clamp01(initialInjury);
@@ -212,7 +205,6 @@ public sealed class PreyAgent : MonoBehaviour
         stressEvacuationPathMultiplier = Mathf.Max(0f, stressEvacuationPathMultiplier);
         soldierStressAttackPenalty = Mathf.Clamp01(soldierStressAttackPenalty);
         soldierStressWithdrawThreshold = Mathf.Clamp01(soldierStressWithdrawThreshold);
-        soldierStressRecoveryBonus = Mathf.Max(0f, soldierStressRecoveryBonus);
         soldierThreatRadius = Mathf.Max(0.1f, soldierThreatRadius);
         soldierAttackRadius = Mathf.Clamp(soldierAttackRadius, 0.1f, soldierThreatRadius);
         soldierAttackDamage = Mathf.Max(0f, soldierAttackDamage);
@@ -390,7 +382,9 @@ public sealed class PreyAgent : MonoBehaviour
         float activeWanderStrength = humanState == HumanState.Evacuating
             ? wanderStrength * evacuationWanderMultiplier
             : wanderStrength;
-        activeWanderStrength *= 1f - stress * stressWanderMultiplier;
+        activeWanderStrength *= role == HumanRole.Civilian
+            ? 1f + stress * stressWanderMultiplier
+            : 1f - stress * stressWanderMultiplier;
         Vector3 desiredDirection = wanderDirection * activeWanderStrength;
 
         soldierTarget = role == HumanRole.Soldier && soldierState != SoldierState.Withdraw
@@ -914,25 +908,11 @@ public sealed class PreyAgent : MonoBehaviour
         {
             AddStress(stressGainWhenFleeing * deltaTime);
         }
-        else if (Time.time - lastStressEventTime >= stressRecoveryDelay)
-        {
-            float activeRecovery = stressRecoveryRate;
-            if (role == HumanRole.Soldier)
-            {
-                activeRecovery += soldierStressRecoveryBonus;
-            }
-
-            stress = Mathf.Clamp01(stress - activeRecovery * deltaTime);
-        }
 
         if (isMoving)
         {
             float gain = isSprinting ? fatigueGainSprinting : fatigueGainMoving;
             fatigue = Mathf.Clamp01(fatigue + gain * deltaTime);
-        }
-        else
-        {
-            fatigue = Mathf.Clamp01(fatigue - fatigueRecoveryRate * deltaTime);
         }
 
         UpdateCivilianStressEvacuation(isThreatened);
