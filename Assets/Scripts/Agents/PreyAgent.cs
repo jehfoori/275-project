@@ -63,22 +63,17 @@ public sealed class PreyAgent : MonoBehaviour
     [SerializeField] private float stressGainNearPredator = 0.75f;
     [SerializeField] private float stressGainWhenFleeing = 0.28f;
     [SerializeField] private float stressGainFromPanicNeighbors = 0.18f;
-    [SerializeField] private float highStressThreshold = 0.65f;
     [SerializeField] private float stressEvacuationThreshold = 0.75f;
     [SerializeField] private float fatigueGainMoving = 0.035f;
     [SerializeField] private float fatigueGainSprinting = 0.09f;
     [SerializeField] private float fatigueSpeedPenalty = 0.32f;
     [SerializeField] private float fatigueAccelerationPenalty = 0.25f;
-    [SerializeField] private float initialInjury = 0f;
-    [SerializeField] private float injurySpeedPenalty = 0.45f;
-    [SerializeField] private float injuryStressGainMultiplier = 0.5f;
     [SerializeField] private float stressFleeWeightMultiplier = 0.45f;
     [SerializeField] private float stressSeparationMultiplier = 0.35f;
     [SerializeField] private float stressCohesionPenalty = 0.5f;
     [SerializeField] private float stressWanderMultiplier = 0.6f;
     [SerializeField] private float stressEvacuationPathMultiplier = 0.35f;
     [SerializeField] private float soldierStressAttackPenalty = 0.35f;
-    [SerializeField] private float soldierStressWithdrawThreshold = 0.92f;
     [Header("Soldier")]
     [SerializeField] private float soldierThreatRadius = 26f;
     [SerializeField] private float soldierAttackRadius = 4f;
@@ -110,12 +105,10 @@ public sealed class PreyAgent : MonoBehaviour
     private float nextWanderTargetTime;
     private float pauseUntilTime;
     private float lastThreatTime = -999f;
-    private float lastStressEventTime = -999f;
     private float nextSoldierAttackTime;
     private float nextPanicContagionCheckTime;
     private float stress;
     private float fatigue;
-    private float injury;
     private Vector3 lastThreatPosition;
     private PredatorAgent soldierTarget;
     private int routeIndex;
@@ -130,8 +123,6 @@ public sealed class PreyAgent : MonoBehaviour
     public bool IsEvacuating => humanState == HumanState.Evacuating;
     public float Stress => stress;
     public float Fatigue => fatigue;
-    public float Injury => injury;
-    public bool IsHighlyStressed => stress >= highStressThreshold;
     public IReadOnlyList<int> DebugRoute => route;
     public int DebugRouteIndex => routeIndex;
     public bool IsPaused => Time.time < pauseUntilTime;
@@ -189,22 +180,17 @@ public sealed class PreyAgent : MonoBehaviour
         stressGainNearPredator = Mathf.Max(0f, stressGainNearPredator);
         stressGainWhenFleeing = Mathf.Max(0f, stressGainWhenFleeing);
         stressGainFromPanicNeighbors = Mathf.Max(0f, stressGainFromPanicNeighbors);
-        highStressThreshold = Mathf.Clamp01(highStressThreshold);
         stressEvacuationThreshold = Mathf.Clamp01(stressEvacuationThreshold);
         fatigueGainMoving = Mathf.Max(0f, fatigueGainMoving);
         fatigueGainSprinting = Mathf.Max(0f, fatigueGainSprinting);
         fatigueSpeedPenalty = Mathf.Clamp01(fatigueSpeedPenalty);
         fatigueAccelerationPenalty = Mathf.Clamp01(fatigueAccelerationPenalty);
-        initialInjury = Mathf.Clamp01(initialInjury);
-        injurySpeedPenalty = Mathf.Clamp01(injurySpeedPenalty);
-        injuryStressGainMultiplier = Mathf.Max(0f, injuryStressGainMultiplier);
         stressFleeWeightMultiplier = Mathf.Max(0f, stressFleeWeightMultiplier);
         stressSeparationMultiplier = Mathf.Max(0f, stressSeparationMultiplier);
         stressCohesionPenalty = Mathf.Clamp01(stressCohesionPenalty);
         stressWanderMultiplier = Mathf.Clamp01(stressWanderMultiplier);
         stressEvacuationPathMultiplier = Mathf.Max(0f, stressEvacuationPathMultiplier);
         soldierStressAttackPenalty = Mathf.Clamp01(soldierStressAttackPenalty);
-        soldierStressWithdrawThreshold = Mathf.Clamp01(soldierStressWithdrawThreshold);
         soldierThreatRadius = Mathf.Max(0.1f, soldierThreatRadius);
         soldierAttackRadius = Mathf.Clamp(soldierAttackRadius, 0.1f, soldierThreatRadius);
         soldierAttackDamage = Mathf.Max(0f, soldierAttackDamage);
@@ -249,7 +235,6 @@ public sealed class PreyAgent : MonoBehaviour
     {
         visualController = GetComponent<AgentVisualController>();
         stress = Mathf.Clamp01(initialStress);
-        injury = Mathf.Clamp01(initialInjury);
         wanderDirection = GetRandomGroundDirection();
         wanderTargetDirection = wanderDirection;
         velocity = wanderDirection * maxSpeed * Random.Range(0.35f, 0.75f);
@@ -915,10 +900,10 @@ public sealed class PreyAgent : MonoBehaviour
             fatigue = Mathf.Clamp01(fatigue + gain * deltaTime);
         }
 
-        UpdateCivilianStressEvacuation(isThreatened);
+        UpdateCivilianStressEvacuation();
     }
 
-    private void UpdateCivilianStressEvacuation(bool isThreatened)
+    private void UpdateCivilianStressEvacuation()
     {
         if (role != HumanRole.Civilian)
         {
@@ -938,9 +923,7 @@ public sealed class PreyAgent : MonoBehaviour
             return;
         }
 
-        float injuryMultiplier = 1f + injury * injuryStressGainMultiplier;
-        stress = Mathf.Clamp01(stress + amount * injuryMultiplier);
-        lastStressEventTime = Time.time;
+        stress = Mathf.Clamp01(stress + amount);
     }
 
     private void AddStressFromVisiblePredator(PredatorAgent predator)
@@ -963,15 +946,13 @@ public sealed class PreyAgent : MonoBehaviour
     private float GetEffectiveSpeed(float baseSpeed)
     {
         float fatiguePenalty = fatigue * fatigueSpeedPenalty;
-        float injuryPenalty = injury * injurySpeedPenalty;
-        return Mathf.Max(0.1f, baseSpeed * (1f - fatiguePenalty) * (1f - injuryPenalty));
+        return Mathf.Max(0.1f, baseSpeed * (1f - fatiguePenalty));
     }
 
     private float GetEffectiveAcceleration(float baseAcceleration)
     {
         float fatiguePenalty = fatigue * fatigueAccelerationPenalty;
-        float injuryPenalty = injury * injurySpeedPenalty;
-        return Mathf.Max(0.1f, baseAcceleration * (1f - fatiguePenalty) * (1f - injuryPenalty));
+        return Mathf.Max(0.1f, baseAcceleration * (1f - fatiguePenalty));
     }
 
     private float GetEffectiveEvacuationPathMultiplier()
