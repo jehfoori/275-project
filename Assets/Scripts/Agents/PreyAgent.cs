@@ -119,6 +119,7 @@ public sealed class PreyAgent : MonoBehaviour
     private bool isDead;
 
     public HumanRole Role => role;
+    public PredatorAgent SoldierTarget => soldierTarget;
     public Vector3 Velocity => velocity;
     public bool IsEvacuating => humanState == HumanState.Evacuating;
     public float Stress => stress;

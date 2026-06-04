@@ -54,6 +54,7 @@ public sealed class PredatorAgent : MonoBehaviour
     public float MaxHealth => maxHealth;
     public float HealthNormalized => maxHealth > 0f ? Mathf.Clamp01(currentHealth / maxHealth) : 0f;
     public bool IsDefeated => isDefeated;
+    public PreyAgent TargetPrey => targetPrey;
 
     private bool HasActiveRoute => navigation != null
         && routeIndex >= 0
