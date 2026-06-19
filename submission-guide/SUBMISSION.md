@@ -8,11 +8,12 @@ configuration and instructions for the team.
 ```text
 docs/
   report/report.pdf
-  images/city-overview.png
-  images/predator-chase.png
-  images/evacuation.png
-  video/demo-gameplay.mp4
-  video/demo-evacuation.mp4
+  images/navigation-graph.png
+  images/evacuation-flow-field.png
+  images/soldier-rally.png
+  video/overview.mp4
+  video/naive-defense.mp4
+  video/rally-defense.mp4
   webgl/                 ← Unity WebGL build (or use Build/WebGL at package time)
 ```
 

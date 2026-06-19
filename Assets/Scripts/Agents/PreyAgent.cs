@@ -391,18 +391,27 @@ public sealed class PreyAgent : MonoBehaviour
         else if (role == HumanRole.Soldier && soldierTarget != null)
         {
             AddStressFromVisiblePredator(soldierTarget);
-            int nearbySoldierCount = CountNearbyCombatSoldiers(soldierTarget);
-            soldierState = nearbySoldierCount >= minSoldiersToEngage ? SoldierState.Engage : SoldierState.Rally;
             isEngagingPredator = true;
 
-            if (soldierState == SoldierState.Engage)
+            if (simulationManager != null && simulationManager.DefenseMode == SimulationDefenseMode.NaiveDefense)
             {
+                soldierState = SoldierState.Engage;
                 AddSoldierEngagementSteering(ref desiredDirection, soldierTarget);
             }
             else
             {
-                AddSoldierRallySteering(ref desiredDirection, soldierTarget);
-                isThreatened = IsSoldierInRallyDanger(soldierTarget);
+                int nearbySoldierCount = CountNearbyCombatSoldiers(soldierTarget);
+                soldierState = nearbySoldierCount >= minSoldiersToEngage ? SoldierState.Engage : SoldierState.Rally;
+
+                if (soldierState == SoldierState.Engage)
+                {
+                    AddSoldierEngagementSteering(ref desiredDirection, soldierTarget);
+                }
+                else
+                {
+                    AddSoldierRallySteering(ref desiredDirection, soldierTarget);
+                    isThreatened = IsSoldierInRallyDanger(soldierTarget);
+                }
             }
         }
         else

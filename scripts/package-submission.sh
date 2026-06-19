@@ -10,13 +10,14 @@ SUBMISSION_NAME="275-project"
 STAGING_ROOT="$STAGING_DIR/$SUBMISSION_NAME"
 
 REQUIRED_IMAGES=(
-  "city-overview.png"
-  "predator-chase.png"
-  "evacuation.png"
+  "navigation-graph.png"
+  "evacuation-flow-field.png"
+  "soldier-rally.png"
 )
 REQUIRED_VIDEOS=(
-  "demo-gameplay.mp4"
-  "demo-evacuation.mp4"
+  "overview.mp4"
+  "naive-defense.mp4"
+  "rally-defense.mp4"
 )
 
 cleanup() {

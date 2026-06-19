@@ -662,6 +662,13 @@ public sealed class CameraViewController : MonoBehaviour
         if (newMode == FollowMode.FollowSoldier || newMode == FollowMode.FollowCitizen)
         {
             SetupFollowTargetImmediate(newMode);
+            if (trackedPreyAgent == null)
+            {
+                Debug.LogWarning(
+                    $"No active {(newMode == FollowMode.FollowSoldier ? "soldiers" : "civilians")} to follow. "
+                    + "Start the simulation or wait for agents to spawn.",
+                    this);
+            }
         }
     }
 

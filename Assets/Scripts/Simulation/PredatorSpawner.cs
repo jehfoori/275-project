@@ -72,6 +72,21 @@ public sealed class PredatorSpawner : MonoBehaviour
         TrySpawnPredator(true);
     }
 
+    public int SpawnTitans(int count)
+    {
+        int spawned = 0;
+
+        for (int i = 0; i < count; i++)
+        {
+            if (TrySpawnPredator(true))
+            {
+                spawned++;
+            }
+        }
+
+        return spawned;
+    }
+
     public bool TrySpawnPredator(bool ignoreManualCooldown)
     {
         EnsureReferences(true);
@@ -105,7 +120,7 @@ public sealed class PredatorSpawner : MonoBehaviour
 
     private void OnGUI()
     {
-        if (!showSpawnButton)
+        if (!showSpawnButton || ShouldHideManualSpawnButton())
         {
             return;
         }
@@ -133,6 +148,22 @@ public sealed class PredatorSpawner : MonoBehaviour
         }
 
         GUI.backgroundColor = previousBackgroundColor;
+    }
+
+    private bool ShouldHideManualSpawnButton()
+    {
+        if (simulationManager == null)
+        {
+            return false;
+        }
+
+        if (simulationManager.IsSandboxMode)
+        {
+            return simulationManager.Phase == SimulationManager.SimulationPhase.AwaitingStart;
+        }
+
+        return simulationManager.UsesSetupFlow
+            || simulationManager.Phase == SimulationManager.SimulationPhase.AwaitingStart;
     }
 
     private bool CanManuallySpawn()
