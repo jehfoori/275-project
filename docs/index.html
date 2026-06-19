@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artificial Life City Simulation</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f14;
+      --panel: #141b24;
+      --text: #e8eef5;
+      --muted: #9aa8b8;
+      --accent: #4da3ff;
+      --accent-soft: rgba(77, 163, 255, 0.12);
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at top, #152033 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); }
+
+    header, main, footer {
+      width: min(1100px, calc(100% - 2rem));
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 2.5rem 0 1rem;
+    }
+
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 70ch;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .pill {
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-size: 0.85rem;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .panel h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.15rem;
+    }
+
+    .demo-frame-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--border);
+    }
+
+    .demo-frame-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+
+    .demo-placeholder {
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .demo-placeholder code {
+      color: var(--text);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    .card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: var(--muted);
+    }
+
+    footer {
+      padding: 2rem 0 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Artificial Life City Simulation</h1>
+    <p>
+      A 3D predator–prey artificial-life demo built in Unity. Crowd agents use
+      Boids-style flocking, waypoint navigation, and stress-driven evacuation
+      while predators pursue prey through a bounded city.
+    </p>
+    <div class="pill-row">
+      <span class="pill">Unity 6000.3.6f1</span>
+      <span class="pill">C#</span>
+      <span class="pill">Steering behaviors</span>
+      <span class="pill">WebGL demo</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Live Demo</h2>
+      <div class="demo-frame-wrap" id="demo-container">
+        <div class="demo-placeholder" id="demo-placeholder">
+          <div>
+            <p><strong>WebGL build not deployed yet.</strong></p>
+            <p>
+              Build in Unity via <code>Build → WebGL → Build Web Demo</code>,
+              copy the output to <code>docs/webgl/</code>, then reload this page.
+            </p>
+            <p>See <a href="WEBGL.md">WEBGL.md</a> for full instructions.</p>
+          </div>
+        </div>
+      </div>
+      <p style="color: var(--muted); font-size: 0.9rem; margin: 0.75rem 0 0;">
+        Controls: click <strong>Spawn Predator</strong> (bottom-left), use
+        <strong>Q / E</strong> or the view selector (bottom-center) to change camera.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>Behavior Model</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Perception</h3>
+          <p>Agents sense nearby flockmates, predators, obstacles, and map boundaries using spatial queries.</p>
+        </div>
+        <div class="card">
+          <h3>Flocking</h3>
+          <p>Separation, alignment, and cohesion produce emergent crowd movement when agents are calm.</p>
+        </div>
+        <div class="card">
+          <h3>Threat response</h3>
+          <p>Predator detection triggers fleeing, panic contagion, and evacuation routing toward exit points.</p>
+        </div>
+        <div class="card">
+          <h3>Predators</h3>
+          <p>Simple pursuit steering with obstacle avoidance; predators consume nearby prey on contact.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Architecture</h2>
+      <ul>
+        <li><strong>PreyAgent</strong> — perception, stress/fatigue, flocking, flee, path follow</li>
+        <li><strong>PredatorAgent</strong> — pursuit, wander, eat, health</li>
+        <li><strong>SimulationManager</strong> — spawning, spatial index, evacuation flow field, HUD</li>
+        <li><strong>CityNavigation</strong> — waypoint graph built from scene markers and building colliders</li>
+        <li><strong>WebGlRuntimeBootstrap</strong> — lighter agent counts when running in the browser</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Run Locally (Unity)</h2>
+      <ul>
+        <li>Open <code>Assets/Scenes/MainSimulation.unity</code></li>
+        <li>Press Play — civilians and soldiers spawn automatically</li>
+        <li>Click <strong>Spawn Predator</strong> to add predators</li>
+      </ul>
+      <p style="margin-top: 0.75rem;">
+        Repository:
+        <a href="https://github.com/jehfoori/275-project">github.com/jehfoori/275-project</a>
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    CS 275 Artificial Life term project.
+  </footer>
+
+  <script>
+    (function () {
+      var demoPath = "webgl/index.html";
+      var container = document.getElementById("demo-container");
+      var placeholder = document.getElementById("demo-placeholder");
+
+      fetch(demoPath, { method: "HEAD" })
+        .then(function (response) {
+          if (!response.ok) {
+            return;
+          }
+
+          var iframe = document.createElement("iframe");
+          iframe.src = demoPath;
+          iframe.title = "Artificial Life City Simulation WebGL Demo";
+          iframe.loading = "lazy";
+          iframe.allow = "fullscreen";
+          placeholder.remove();
+          container.appendChild(iframe);
+        })
+        .catch(function () {
+          // Keep placeholder when demo files are not deployed.
+        });
+    })();
+  </script>
+</body>
+</html>

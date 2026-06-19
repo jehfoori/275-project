@@ -33,8 +33,19 @@ public sealed class PredatorSpawner : MonoBehaviour
         buttonSize = new Vector2(Mathf.Max(80f, buttonSize.x), Mathf.Max(24f, buttonSize.y));
     }
 
+    public void ConfigureForWebGl(int maxPredators, bool enableAutoSpawn = false)
+    {
+        maxActivePredators = Mathf.Max(0, maxPredators);
+        spawnOnStart = enableAutoSpawn;
+    }
+
     private void Awake()
     {
+        if (Application.platform == RuntimePlatform.WebGLPlayer)
+        {
+            ConfigureForWebGl(8, enableAutoSpawn: false);
+        }
+
         EnsureReferences(true);
         nextSpawnTime = Time.time + initialDelay;
     }

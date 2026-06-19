@@ -94,8 +94,19 @@ public sealed class SimulationManager : MonoBehaviour
         statsHudWidth = Mathf.Max(160f, statsHudWidth);
     }
 
+    public void ConfigureForWebGl(int preyCount, int soldierCount)
+    {
+        startingPreyCount = Mathf.Max(0, preyCount);
+        startingSoldierCount = Mathf.Max(0, soldierCount);
+    }
+
     private void Awake()
     {
+        if (Application.platform == RuntimePlatform.WebGLPlayer)
+        {
+            ConfigureForWebGl(40, 12);
+        }
+
         simulationStartTime = Time.time;
         BuildNavigation();
     }

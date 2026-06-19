@@ -261,6 +261,45 @@ The current goal is a working city simulation scene with:
 
 Keep implementation simple first. Visual polish can build on top of working behavior.
 
+## WebGL Website Demo
+
+The project supports a browser-hosted WebGL build for presenting the simulation on a website.
+
+### One-time setup
+
+Install **WebGL Build Support** for Unity `6000.3.6f1` in Unity Hub (Add modules on the editor install).
+
+### Build
+
+1. Open `Assets/Scenes/MainSimulation.unity`.
+2. Run **Build → WebGL → Build Web Demo**.
+3. Output is written to `Build/WebGL/`.
+
+The WebGL player automatically uses lighter settings (fewer agents, lower quality) via `WebGlRuntimeBootstrap`.
+
+### Preview locally
+
+```sh
+chmod +x scripts/serve-webgl.sh
+./scripts/serve-webgl.sh
+```
+
+Open [http://localhost:8080](http://localhost:8080). Do not open `index.html` directly with `file://`.
+
+### Publish
+
+1. Copy the build into the docs site:
+
+```sh
+mkdir -p docs/webgl
+cp -R Build/WebGL/. docs/webgl/
+```
+
+2. Enable GitHub Pages from the `/docs` folder.
+3. The landing page at `docs/index.html` embeds the live demo when `docs/webgl/index.html` exists.
+
+Full details: [docs/WEBGL.md](docs/WEBGL.md)
+
 ## Troubleshooting
 
 ### `git-lfs: command not found`
