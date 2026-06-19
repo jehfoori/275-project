@@ -20,6 +20,11 @@ fi
 # shellcheck disable=SC1090
 source "$META_FILE"
 
+# Strip Windows CRLF artifacts that break URLs in generated HTML/JS.
+TEAM_MEMBERS="${TEAM_MEMBERS//$'\r'/}"
+HOSTED_DEMO_URL="${HOSTED_DEMO_URL//$'\r'/}"
+GITHUB_URL="${GITHUB_URL//$'\r'/}"
+
 for var in TEAM_MEMBERS HOSTED_DEMO_URL GITHUB_URL; do
   if [[ -z "${!var:-}" ]]; then
     echo "submission.meta must set $var" >&2
