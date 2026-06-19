@@ -59,6 +59,9 @@ public static class WebGlBuildMenu
             EditorUtility.DisplayDialog(
                 "WebGL Build Succeeded",
                 $"Output folder:\n{fullPath}\n\n"
+                + "Publish to GitHub Pages:\n"
+                + "  cp -R Build/WebGL/. docs/webgl/\n"
+                + "  ./scripts/prepare-webgl-for-pages.sh docs/webgl\n\n"
                 + "Preview locally with:\n"
                 + "  ./scripts/serve-webgl.sh\n\n"
                 + "Then open http://localhost:8080",

@@ -82,14 +82,21 @@ For GitHub Pages, the project disables build compression by default so hosting w
 ### Option A: GitHub Pages (recommended)
 
 1. Build in Unity (`Build/WebGL`).
-2. Copy the entire contents of `Build/WebGL/` into `docs/webgl/`:
+2. Copy the build into `docs/webgl/`:
 
 ```sh
 mkdir -p docs/webgl
 cp -R Build/WebGL/. docs/webgl/
 ```
 
-3. Commit and push `docs/index.html` and `docs/webgl/`.
+3. **Decompress for GitHub Pages** (required — Pages cannot serve `.gz` / `.br` Unity builds):
+
+```sh
+chmod +x scripts/prepare-webgl-for-pages.sh
+./scripts/prepare-webgl-for-pages.sh docs/webgl
+```
+
+4. Commit and push `docs/index.html` and `docs/webgl/`.
 4. On GitHub: **Settings → Pages → Build and deployment → Branch: main → Folder: /docs**.
 5. Your site will be live at:
 

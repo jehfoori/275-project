@@ -293,6 +293,7 @@ Open [http://localhost:8080](http://localhost:8080). Do not open `index.html` di
 ```sh
 mkdir -p docs/webgl
 cp -R Build/WebGL/. docs/webgl/
+./scripts/prepare-webgl-for-pages.sh docs/webgl
 ```
 
 2. Enable GitHub Pages from the `/docs` folder.
