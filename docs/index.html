@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Artificial Life City Simulation</title>
+  <title>Artificial Life City Simulation — CS 275 Term Project</title>
   <style>
     :root {
       color-scheme: dark;
@@ -24,71 +24,187 @@
       background: radial-gradient(circle at top, #152033 0%, var(--bg) 55%);
       color: var(--text);
       line-height: 1.6;
+      min-height: 100vh;
     }
 
     a { color: var(--accent); }
 
-    header, main, footer {
-      width: min(1100px, calc(100% - 2rem));
+    .site-header {
+      width: min(1200px, calc(100% - 2rem));
       margin: 0 auto;
+      padding: 1.75rem 0 0.5rem;
     }
 
-    header {
-      padding: 2.5rem 0 1rem;
-    }
-
-    header h1 {
-      margin: 0 0 0.5rem;
-      font-size: clamp(1.8rem, 4vw, 2.6rem);
+    .site-header h1 {
+      margin: 0 0 0.35rem;
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
       letter-spacing: -0.02em;
     }
 
-    header p {
+    .site-header .subtitle {
       margin: 0;
       color: var(--muted);
-      max-width: 70ch;
+      max-width: 72ch;
     }
 
-    .pill-row {
+    .meta-row {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
-      margin-top: 1rem;
+      margin-top: 0.85rem;
     }
 
     .pill {
-      padding: 0.25rem 0.75rem;
+      padding: 0.2rem 0.7rem;
       border-radius: 999px;
       background: var(--accent-soft);
       border: 1px solid var(--border);
       color: var(--accent);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
+    }
+
+    .tab-bar-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(11, 15, 20, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border);
+      margin-top: 1rem;
+    }
+
+    .tab-bar {
+      width: min(1200px, calc(100% - 2rem));
+      margin: 0 auto;
+      display: flex;
+      gap: 0.25rem;
+      overflow-x: auto;
+      padding: 0.5rem 0;
+    }
+
+    .tab-btn {
+      appearance: none;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.92rem;
+      padding: 0.55rem 0.95rem;
+      border-radius: 999px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: var(--text);
+      background: var(--accent-soft);
+      border-color: rgba(77, 163, 255, 0.35);
+    }
+
+    .tab-btn .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #3ddc84;
+      margin-left: 0.35rem;
+      vertical-align: middle;
+      opacity: 0;
+    }
+
+    .tab-btn.demo-loaded .dot { opacity: 1; }
+
+    main {
+      width: min(1200px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1.25rem 0 3rem;
+    }
+
+    .tab-panel { display: none; animation: fadeIn 0.2s ease; }
+    .tab-panel.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .panel {
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 1.25rem;
-      margin-bottom: 1.25rem;
+      padding: 1.25rem 1.35rem;
+      margin-bottom: 1rem;
     }
 
-    .panel h2 {
-      margin: 0 0 0.75rem;
-      font-size: 1.15rem;
+    .panel h2 { margin: 0 0 0.65rem; font-size: 1.12rem; }
+    .panel p, .panel li { color: var(--muted); }
+    .panel ul { margin: 0; padding-left: 1.2rem; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.85rem;
     }
 
-    .demo-frame-wrap {
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.9rem;
+    }
+
+    .card h3 { margin: 0 0 0.35rem; font-size: 0.98rem; color: var(--text); }
+    .card p { margin: 0; font-size: 0.92rem; }
+
+    .figure { margin: 0 0 1rem; }
+
+    .figure img {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: block;
+      background: #000;
+    }
+
+    .figure figcaption {
+      margin-top: 0.45rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .video-list a {
+      display: block;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      text-decoration: none;
+    }
+
+    .video-list a:last-child { border-bottom: 0; }
+
+    .video-list span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .demo-shell {
       position: relative;
       width: 100%;
       aspect-ratio: 16 / 10;
+      min-height: 420px;
       border-radius: 12px;
       overflow: hidden;
       background: #000;
       border: 1px solid var(--border);
     }
 
-    .demo-frame-wrap iframe {
+    .demo-shell iframe {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -97,166 +213,326 @@
     }
 
     .demo-placeholder {
+      position: absolute;
+      inset: 0;
       display: grid;
       place-items: center;
-      min-height: 320px;
       padding: 2rem;
       text-align: center;
       color: var(--muted);
     }
 
-    .demo-placeholder code {
-      color: var(--text);
+    .notice {
+      padding: 0.85rem 1rem;
+      border-radius: 10px;
+      background: rgba(77, 163, 255, 0.08);
+      border: 1px solid rgba(77, 163, 255, 0.2);
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1rem;
-    }
+    .notice strong { color: var(--text); }
 
-    .card {
-      background: rgba(255, 255, 255, 0.03);
+    .file-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 0.9rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      text-decoration: none;
+      margin-top: 0.5rem;
+      margin-right: 0.5rem;
+    }
+
+    .source-tree {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 10px;
       padding: 1rem;
-    }
-
-    .card h3 {
-      margin: 0 0 0.5rem;
-      font-size: 1rem;
-    }
-
-    .card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
-
-    ul {
-      margin: 0;
-      padding-left: 1.2rem;
-      color: var(--muted);
+      overflow-x: auto;
     }
 
     footer {
-      padding: 2rem 0 3rem;
+      width: min(1200px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 0 0 2rem;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+    }
+
+    #demo-preload-host {
+      position: fixed;
+      left: -10000px;
+      top: 0;
+      width: 1280px;
+      height: 800px;
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+    }
+
+    #demo-preload-host.ready-for-display {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
     }
   </style>
 </head>
 <body>
-  <header>
+  <header class="site-header">
     <h1>Artificial Life City Simulation</h1>
-    <p>
-      A 3D predator–prey artificial-life demo built in Unity. Crowd agents use
-      Boids-style flocking, waypoint navigation, and stress-driven evacuation
-      while predators pursue prey through a bounded city.
+    <p class="subtitle">
+      A 3D predator–prey artificial-life system with Boids-style flocking, stress-driven
+      evacuation, and pursuit predators in a bounded city environment.
     </p>
-    <div class="pill-row">
-      <span class="pill">Unity 6000.3.6f1</span>
-      <span class="pill">C#</span>
-      <span class="pill">Steering behaviors</span>
-      <span class="pill">WebGL demo</span>
+    <div class="meta-row">
+      <span class="pill">CS 275 — Artificial Life</span>
+      <span class="pill">Unity / C#</span>
+      <span class="pill">Interactive Web Demo</span>
     </div>
   </header>
 
+  <nav class="tab-bar-wrap" aria-label="Project sections">
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" role="tab" aria-selected="true" data-tab="overview">Overview</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="demo" id="demo-tab-btn">
+        Live Demo<span class="dot" title="Demo loaded"></span>
+      </button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="report">Report</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="gallery">Gallery</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="videos">Videos</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="source">Source Code</button>
+    </div>
+  </nav>
+
   <main>
-    <section class="panel">
-      <h2>Live Demo</h2>
-      <div class="demo-frame-wrap" id="demo-container">
-        <div class="demo-placeholder" id="demo-placeholder">
-          <div>
-            <p><strong>WebGL build not deployed yet.</strong></p>
-            <p>
-              Build in Unity via <code>Build → WebGL → Build Web Demo</code>,
-              copy the output to <code>docs/webgl/</code>, then reload this page.
-            </p>
-            <p>See <a href="WEBGL.md">WEBGL.md</a> for full instructions.</p>
+    <section class="tab-panel active" id="tab-overview" role="tabpanel">
+      <div class="panel">
+        <h2>Project Information</h2>
+        <p><strong>Title:</strong> Artificial Life City Simulation</p>
+        <p><strong>Team members:</strong> Name One, Name Two, Name Three</p>
+        <p><strong>Abstract:</strong></p>
+        <p>
+          We built a 3D artificial-life simulation in Unity where autonomous prey agents
+          navigate a city using local perception and kinematic steering. Prey combine
+          Reynolds-style flocking (separation, alignment, cohesion) with obstacle avoidance,
+          predator fleeing, and waypoint-based wandering. Predators use pursuit steering to
+          chase and consume prey, disrupting emergent crowd behavior. Internal stress and
+          fatigue modulate movement, and civilians evacuate toward exit points when threat
+          levels rise. The system demonstrates schooling, scattering under attack, and
+          population-level dynamics in an interactive 3D demo exported for the web.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>Behavior Model</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Perception</h3>
+            <p>Spatial queries for flockmates, predators, obstacles, and bounds each frame.</p>
+          </div>
+          <div class="card">
+            <h3>Action selection</h3>
+            <p>Flee and avoidance take priority over path following, flocking, and wander.</p>
+          </div>
+          <div class="card">
+            <h3>Steering</h3>
+            <p>Combined steering vectors clamped by max speed and acceleration.</p>
+          </div>
+          <div class="card">
+            <h3>Emergence</h3>
+            <p>Crowds form, scatter under threat, and re-route through the city network.</p>
           </div>
         </div>
       </div>
-      <p style="color: var(--muted); font-size: 0.9rem; margin: 0.75rem 0 0;">
-        Controls: click <strong>Spawn Predator</strong> (bottom-left), use
-        <strong>Q / E</strong> or the view selector (bottom-center) to change camera.
-      </p>
+
+      <div class="notice">
+        <strong>Interactive demo:</strong> open the <em>Live Demo</em> tab to run the WebGL
+        simulation. The demo preloads in the background and stays active while you browse
+        other tabs.
+      </div>
     </section>
 
-    <section class="panel">
-      <h2>Behavior Model</h2>
-      <div class="grid">
-        <div class="card">
-          <h3>Perception</h3>
-          <p>Agents sense nearby flockmates, predators, obstacles, and map boundaries using spatial queries.</p>
-        </div>
-        <div class="card">
-          <h3>Flocking</h3>
-          <p>Separation, alignment, and cohesion produce emergent crowd movement when agents are calm.</p>
-        </div>
-        <div class="card">
-          <h3>Threat response</h3>
-          <p>Predator detection triggers fleeing, panic contagion, and evacuation routing toward exit points.</p>
-        </div>
-        <div class="card">
-          <h3>Predators</h3>
-          <p>Simple pursuit steering with obstacle avoidance; predators consume nearby prey on contact.</p>
+    <section class="tab-panel" id="tab-demo" role="tabpanel">
+      <div class="notice" id="demo-host-notice" hidden>
+        <strong>Online demo:</strong>
+        <a id="hosted-demo-link" href="https://jehfoori.github.io/275-project/webgl/index.html" target="_blank" rel="noopener">Open the hosted interactive demo</a>,
+        or watch the video recordings in the Videos tab.
+      </div>
+
+      <div class="panel">
+        <h2>Live Demo</h2>
+        <p>
+          Click <strong>Spawn Predator</strong> (bottom-left). Use <strong>Q / E</strong> or
+          the view selector (bottom-center) to change camera angles.
+        </p>
+        <div class="demo-shell" id="demo-display-shell">
+          <div class="demo-placeholder" id="demo-placeholder">
+            <p><strong>Loading interactive demo…</strong></p>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="panel">
-      <h2>Architecture</h2>
-      <ul>
-        <li><strong>PreyAgent</strong> — perception, stress/fatigue, flocking, flee, path follow</li>
-        <li><strong>PredatorAgent</strong> — pursuit, wander, eat, health</li>
-        <li><strong>SimulationManager</strong> — spawning, spatial index, evacuation flow field, HUD</li>
-        <li><strong>CityNavigation</strong> — waypoint graph built from scene markers and building colliders</li>
-        <li><strong>WebGlRuntimeBootstrap</strong> — lighter agent counts when running in the browser</li>
-      </ul>
+    <section class="tab-panel" id="tab-report" role="tabpanel">
+      <div class="panel">
+        <h2>Project Report</h2>
+        <p>Written report describing architecture, behavior model, implementation, and results.</p>
+        <a class="file-link" href="report/report.pdf">Download report.pdf</a>
+      </div>
     </section>
 
-    <section class="panel">
-      <h2>Run Locally (Unity)</h2>
-      <ul>
-        <li>Open <code>Assets/Scenes/MainSimulation.unity</code></li>
-        <li>Press Play — civilians and soldiers spawn automatically</li>
-        <li>Click <strong>Spawn Predator</strong> to add predators</li>
-      </ul>
-      <p style="margin-top: 0.75rem;">
-        Repository:
-        <a href="https://github.com/jehfoori/275-project">github.com/jehfoori/275-project</a>
-      </p>
+    <section class="tab-panel" id="tab-gallery" role="tabpanel">
+      <div class="panel">
+        <h2>Representative Images</h2>
+        <figure class="figure">
+          <img src="images/city-overview.png" alt="City overview with crowd agents" />
+          <figcaption>Figure 1: Overview of the city environment with civilian and soldier agents navigating the waypoint network.</figcaption>
+        </figure>
+        <figure class="figure">
+          <img src="images/predator-chase.png" alt="Predator pursuing fleeing prey" />
+          <figcaption>Figure 2: Predator pursuit causing prey to flee and disrupt local flock cohesion.</figcaption>
+        </figure>
+        <figure class="figure">
+          <img src="images/evacuation.png" alt="Evacuation flow toward exit points" />
+          <figcaption>Figure 3: Elevated stress triggers evacuation routing toward exit nodes.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-videos" role="tabpanel">
+      <div class="panel">
+        <h2>Video Demos</h2>
+        <div class="video-list">
+          <a href="video/demo-gameplay.mp4">
+            demo-gameplay.mp4
+            <span>Full gameplay walkthrough — crowd behavior, predator spawn, and camera views.</span>
+          </a>
+          <a href="video/demo-evacuation.mp4">
+            demo-evacuation.mp4
+            <span>Evacuation and panic contagion under sustained predator threat.</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tab-source" role="tabpanel">
+      <div class="panel">
+        <h2>Source Code &amp; Executable</h2>
+        <p>Unity project source and WebGL browser build.</p>
+        <a class="file-link" href="source/">Open source/ folder</a>
+        <a class="file-link" href="https://github.com/jehfoori/275-project" target="_blank" rel="noopener">GitHub repository</a>
+        <div class="source-tree" style="margin-top: 1rem;">
+275-project/<br>
+├── Assets/Scripts/Agents/ &nbsp; PreyAgent, PredatorAgent<br>
+├── Assets/Scripts/Simulation/ &nbsp; SimulationManager, navigation, WebGL<br>
+├── Assets/Scenes/MainSimulation.unity<br>
+├── webgl/ &nbsp; browser executable (WebGL build)<br>
+└── README.md
+        </div>
+      </div>
     </section>
   </main>
 
+  <div id="demo-preload-host" aria-hidden="true"></div>
+
   <footer>
-    CS 275 Artificial Life term project.
+    CS 275 Artificial Life — term project submission.
   </footer>
 
   <script>
     (function () {
-      var demoPath = "webgl/index.html";
-      var container = document.getElementById("demo-container");
-      var placeholder = document.getElementById("demo-placeholder");
+      var HOSTED_DEMO_URL = "https://jehfoori.github.io/275-project/webgl/index.html";
+      var LOCAL_DEMO_PATH = "webgl/index.html";
+      var demoPreloadHost = document.getElementById("demo-preload-host");
+      var demoDisplayShell = document.getElementById("demo-display-shell");
+      var demoPlaceholder = document.getElementById("demo-placeholder");
+      var demoTabBtn = document.getElementById("demo-tab-btn");
+      var demoHostNotice = document.getElementById("demo-host-notice");
+      var demoIframe = null;
+      var demoMountedInShell = false;
+      var isFileProtocol = location.protocol === "file:";
 
-      fetch(demoPath, { method: "HEAD" })
-        .then(function (response) {
-          if (!response.ok) {
-            return;
-          }
-
-          var iframe = document.createElement("iframe");
-          iframe.src = demoPath;
-          iframe.title = "Artificial Life City Simulation WebGL Demo";
-          iframe.loading = "lazy";
-          iframe.allow = "fullscreen";
-          placeholder.remove();
-          container.appendChild(iframe);
-        })
-        .catch(function () {
-          // Keep placeholder when demo files are not deployed.
+      function setActiveTab(tabId) {
+        document.querySelectorAll(".tab-btn").forEach(function (btn) {
+          var isActive = btn.getAttribute("data-tab") === tabId;
+          btn.classList.toggle("active", isActive);
+          btn.setAttribute("aria-selected", isActive ? "true" : "false");
         });
+
+        document.querySelectorAll(".tab-panel").forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === "tab-" + tabId);
+        });
+
+        if (tabId === "demo") {
+          mountDemoInShell();
+        } else if (demoIframe && demoMountedInShell) {
+          returnDemoToPreloadHost();
+        }
+      }
+
+      document.querySelectorAll(".tab-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          setActiveTab(btn.getAttribute("data-tab"));
+        });
+      });
+
+      function mountDemoInShell() {
+        if (!demoIframe) return;
+        demoPlaceholder.style.display = "none";
+        demoIframe.classList.add("ready-for-display");
+        demoDisplayShell.appendChild(demoIframe);
+        demoMountedInShell = true;
+      }
+
+      function returnDemoToPreloadHost() {
+        if (!demoIframe || !demoMountedInShell) return;
+        demoIframe.classList.remove("ready-for-display");
+        demoPreloadHost.appendChild(demoIframe);
+        demoMountedInShell = false;
+      }
+
+      function createDemoIframe(src) {
+        demoIframe = document.createElement("iframe");
+        demoIframe.src = src;
+        demoIframe.title = "Artificial Life City Simulation WebGL Demo";
+        demoIframe.allow = "fullscreen";
+        demoIframe.setAttribute("loading", "eager");
+        demoPreloadHost.appendChild(demoIframe);
+        demoTabBtn.classList.add("demo-loaded");
+      }
+
+      function initDemo() {
+        if (isFileProtocol) {
+          demoHostNotice.hidden = false;
+          createDemoIframe(HOSTED_DEMO_URL);
+          return;
+        }
+
+        fetch(LOCAL_DEMO_PATH, { method: "HEAD" })
+          .then(function (response) {
+            if (response.ok) {
+              createDemoIframe(LOCAL_DEMO_PATH);
+              return;
+            }
+            throw new Error("missing");
+          })
+          .catch(function () {
+            createDemoIframe(HOSTED_DEMO_URL);
+          });
+      }
+
+      initDemo();
     })();
   </script>
 </body>

@@ -298,7 +298,9 @@ cp -R Build/WebGL/. docs/webgl/
 2. Enable GitHub Pages from the `/docs` folder.
 3. The landing page at `docs/index.html` embeds the live demo when `docs/webgl/index.html` exists.
 
-Full details: [docs/WEBGL.md](docs/WEBGL.md)
+Full details: [submission-guide/WEBGL.md](submission-guide/WEBGL.md)
+
+Term project submission packaging: [submission-guide/SUBMISSION.md](submission-guide/SUBMISSION.md)
 
 ## Troubleshooting
 

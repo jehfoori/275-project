@@ -76,6 +76,10 @@ mono_crash.*
 *.unitypackage
 *.unitypackage.meta
 *.app
+275-project-submission.zip
+
+# Local submission config (use submission.meta.example as template)
+submission-guide/submission.meta
 
 # Crashlytics generated file
 crashlytics-build.properties

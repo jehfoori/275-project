@@ -1,0 +1,4 @@
+# Copy to submission.meta and fill in your team details before packaging.
+TEAM_MEMBERS="Name One, Name Two, Name Three"
+HOSTED_DEMO_URL="https://jehfoori.github.io/275-project/webgl/index.html"
+GITHUB_URL="https://github.com/jehfoori/275-project"
