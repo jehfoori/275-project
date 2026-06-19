@@ -320,17 +320,21 @@
       <div class="panel">
         <h2>Project Information</h2>
         <p><strong>Title:</strong> Artificial Life City Simulation</p>
-        <p><strong>Team members:</strong> Name One, Name Two, Name Three</p>
+        <p><strong>Team members:</strong> Jeffrey Huang, Hongyi Jin, Krish Patel, Aaron Zhao</p>
         <p><strong>Abstract:</strong></p>
         <p>
-          We built a 3D artificial-life simulation in Unity where autonomous prey agents
-          navigate a city using local perception and kinematic steering. Prey combine
-          Reynolds-style flocking (separation, alignment, cohesion) with obstacle avoidance,
-          predator fleeing, and waypoint-based wandering. Predators use pursuit steering to
-          chase and consume prey, disrupting emergent crowd behavior. Internal stress and
-          fatigue modulate movement, and civilians evacuate toward exit points when threat
-          levels rise. The system demonstrates schooling, scattering under attack, and
-          population-level dynamics in an interactive 3D demo exported for the web.
+          This paper presents an Artificial Life simulation modeling emergent group behaviors
+          during a city-scale evacuation under the threat of external predators. We describe a
+          multi-agent system comprising three distinct agent roles: civilians (prey), soldiers
+          (defenders), and titans (predators) simulated within a dense, bounded urban environment.
+          By defining localized steering rules, sensory perception, and internal physiological states
+          (stress and fatigue), we demonstrate how complex group dynamics emerge without centralized
+          control. Civilians use a pre-computed Dijkstra flow field for evacuation routing while
+          propagating panic dynamically to neighbors. Soldiers coordinate combat maneuvers—rallying
+          to maintain tactical standoff distances and engaging only when local numbers are sufficient.
+          Titans hunt using a pursuit-wander loop. We evaluate the resilience of the crowd, the
+          effectiveness of soldier defense, and the impact of stress and fatigue on the success of
+          the evacuation.
         </p>
       </div>
 
@@ -396,16 +400,16 @@
       <div class="panel">
         <h2>Representative Images</h2>
         <figure class="figure">
-          <img src="images/city-overview.png" alt="City overview with crowd agents" />
-          <figcaption>Figure 1: Overview of the city environment with civilian and soldier agents navigating the waypoint network.</figcaption>
+          <img src="images/navigation-graph.png" alt="City navigation graph with waypoint nodes and building bounds" />
+          <figcaption>Figure 1: City navigation graph showing waypoint nodes, traversable links, and orange building bounds used for obstacle avoidance.</figcaption>
         </figure>
         <figure class="figure">
-          <img src="images/predator-chase.png" alt="Predator pursuing fleeing prey" />
-          <figcaption>Figure 2: Predator pursuit causing prey to flee and disrupt local flock cohesion.</figcaption>
+          <img src="images/evacuation-flow-field.png" alt="Dijkstra evacuation flow field toward exit gates" />
+          <figcaption>Figure 3: Dijkstra evacuation vector field routing civilians toward the nearest exit gate.</figcaption>
         </figure>
         <figure class="figure">
-          <img src="images/evacuation.png" alt="Evacuation flow toward exit points" />
-          <figcaption>Figure 3: Elevated stress triggers evacuation routing toward exit nodes.</figcaption>
+          <img src="images/soldier-rally.png" alt="Soldiers executing cooperative rally around a Titan" />
+          <figcaption>Figure 5: Soldiers executing cooperative rally behavior around a Titan before coordinated engagement.</figcaption>
         </figure>
       </div>
     </section>
@@ -414,13 +418,17 @@
       <div class="panel">
         <h2>Video Demos</h2>
         <div class="video-list">
-          <a href="video/demo-gameplay.mp4">
-            demo-gameplay.mp4
-            <span>Full gameplay walkthrough — crowd behavior, predator spawn, and camera views.</span>
+          <a href="video/overview.mp4">
+            overview.mp4
+            <span>Project overview — city simulation, agent behavior, defense modes, and interactive features.</span>
           </a>
-          <a href="video/demo-evacuation.mp4">
-            demo-evacuation.mp4
-            <span>Evacuation and panic contagion under sustained predator threat.</span>
+          <a href="video/naive-defense.mp4">
+            naive-defense.mp4
+            <span>Naive Defense simulation — soldiers engage titans immediately without coordinated rallying.</span>
+          </a>
+          <a href="video/rally-defense.mp4">
+            rally-defense.mp4
+            <span>Rally Defense simulation — soldiers rally and engage titans cooperatively before attacking.</span>
           </a>
         </div>
       </div>
